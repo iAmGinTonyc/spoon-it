@@ -106,7 +106,7 @@ function startAttack(){
   const[dx,dz]=aimDir();S.ax=dx;S.az=dz;faceTo(dx,dz);
   const i=(C.comboT>0?C.combo+1:0)%3;C.combo=i;const a=ATK[i];
   S.atkT=a.t;S.atkDur=a.t;C.hitAt=a.t-a.hit;C.struck=false;S.lvx=dx*a.lunge;S.lvz=dz*a.lunge;C.comboT=.5;
-  slashM.material=slashMats[i===2?1:0];slashM.position.set(S.x+dx*1.7,.12,S.z+dz*1.7);slashM.rotation.y=Math.atan2(-dx,-dz)+(i===1?Math.PI:0);slashM.scale.set(i===2?5.6:4.6,1,i===2?3.4:2.8);slashM.visible=true;slashM.material.uniforms.uOp.value=1;
+  slashM.material=slashMats[i===2?1:0];slashM.position.set(S.x+dx*1.7,.12,S.z+dz*1.7);slashM.rotation.y=Math.atan2(-dx,-dz)+(i===1?Math.PI:0);slashM.scale.set(i===2?5.6:4.6,1,i===2?3.4:2.8);slashM.visible=true;slashM.material.uniforms.uOp.value=.6;
   blip(i===2?260:340,.08,'sawtooth',.05);
 }
 function strike(a){

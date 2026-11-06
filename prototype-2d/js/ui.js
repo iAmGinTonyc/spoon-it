@@ -238,7 +238,7 @@ function update(dt){
   updateScene(dt);updateCam(dt);
 }
 applyCam();
-{const url=heroPortrait(360).toDataURL('image/jpeg',.9);document.querySelectorAll('[data-hero]').forEach(i=>{i.src=url})}
+heroImg.decode().catch(()=>{}).then(()=>{const url=heroPortrait(360).toDataURL('image/jpeg',.9);document.querySelectorAll('[data-hero]').forEach(i=>{i.src=url});heroKey=''});
 let last=performance.now();
 function frame(now){
   const dt=clamp((now-last)/1000,0,.05);last=now;

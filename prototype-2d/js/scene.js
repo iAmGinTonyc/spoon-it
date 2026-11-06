@@ -365,20 +365,18 @@ const flies=Array.from({length:12},(_,i)=>({m:spr(A.fly[i%3],0,0,.9),a:i,cx:(i*7
 const glows=Array.from({length:22},(_,i)=>({m:spr(A.firefly,0,0,1,false,makeMat(A.firefly.tex,false,{glow:1,add:true,op:0}),0),a:i*1.7,r:3+i*.9}));
 
 /* ---------- герой ---------- */
-const HERO_PX=640,heroCanvas=document.createElement('canvas');heroCanvas.width=heroCanvas.height=HERO_PX;
-const heroArt={w:3.2,h:3.2,tex:new THREE.CanvasTexture(heroCanvas)};
+const HERO_PPM=150,heroCanvas=document.createElement('canvas');heroCanvas.width=HERO_W*HERO_PPM;heroCanvas.height=HERO_H*HERO_PPM;
+const heroArt={w:HERO_W,h:HERO_H,tex:new THREE.CanvasTexture(heroCanvas)};const heroG=heroCanvas.getContext('2d');heroG.scale(HERO_PPM,HERO_PPM);heroG.lineJoin=heroG.lineCap='round';
 /* волк рисуется мимо живописного фильтра: метка в альфе кадра, чтобы мелкие детали не смазывались */
 const heroMat=makeMat(heroArt.tex,false,{mask:true});
-const hero=new THREE.Mesh(spriteGeo,heroMat);scene.add(hero);hero.scale.set(3.2,3.2,1);
+const hero=new THREE.Mesh(spriteGeo,heroMat);scene.add(hero);hero.scale.set(HERO_W,HERO_H,1);
 const heroShadow=new THREE.Mesh(flatGeo,regFlat(makeMat(A.shadow.tex,true)));heroShadow.renderOrder=-5;scene.add(heroShadow);
 const ripple=new THREE.Mesh(flatGeo,regFlat(makeMat(A.ring.tex,true,{op:.8})));ripple.renderOrder=-5;ripple.visible=false;scene.add(ripple);
-const heroFrames=new Map();let heroKey='';
+let heroKey='';
 function setHeroFrame(o){
-  const key=[o.dir,o.step,o.pose,o.item,o.water,o.dual,o.blink,o.rollA,o.lamp,o.skates].join();
+  const key=[o.view,o.runF,o.atkF,o.pose,o.item,o.water,o.dual,o.rollA,o.lamp,o.skates,o.wobble,heroImg.complete].join();
   if(key===heroKey)return;heroKey=key;
-  let c=heroFrames.get(key);
-  if(!c){if(heroFrames.size>220)heroFrames.clear();c=document.createElement('canvas');c.width=c.height=HERO_PX;const g=c.getContext('2d');g.scale(HERO_PX/3.2,HERO_PX/3.2);g.lineJoin=g.lineCap='round';drawHero(g,o);heroFrames.set(key,c)}
-  const g=heroCanvas.getContext('2d');g.clearRect(0,0,HERO_PX,HERO_PX);g.drawImage(c,0,0);heroArt.tex.needsUpdate=true;
+  drawHero(heroG,o);heroArt.tex.needsUpdate=true;
 }
 
 /* ---------- кораблик: настоящая модель, чтобы смотреть из-за кормы ---------- */
@@ -569,23 +567,27 @@ function updateObjs(dt){
 }
 function updateHero(dt,baseY){
   const b=S.boat,moved=S.moving&&!S.ui;
-  const step=moved?Math.round(Math.sin(Math.floor(S.walkT*2.2)/2.2)*2)/2:0;
+  const runF=Math.floor(S.walkT*.8)%6,step=moved?Math.sin(S.walkT*.7):0;
   const hh=S.onBoat||S.inCave?null:held(),item=hh&&hh!=='skates'&&(!TOOLS[hh]||S.have[hh])?hh:null,hasW=hh==='lantern'?S.lanternOn:!!(TOOLS[hh]&&S.water>0);
   const pose=S.rollT>0?'roll':S.hurtT>0?'hurt':S.atkT>0?'atk':S.chargeT>.18?'charge':S.mode==='wake'?'idle':S.scoopT>0?'scoop':S.chopT>.35?'chop':S.pourT>0?'pour':'idle';
-  const bl=Math.sin(time*.9+1)>.992,dual=!!(TOOLS[hh]&&S.up[hh]&&S.up[hh].dual);
-  const dir=S.onBoat?'up':S.dir;
-  setHeroFrame({dir,step,pose,item,water:hasW,dual,blink:bl,rollA:pose==='roll'?Math.round(time*14)%8*.785:0,lamp:S.lanternOn&&hh!=='lantern',skates:S.skates.on&&!S.onBoat});
+  const dual=!!(TOOLS[hh]&&S.up[hh]&&S.up[hh].dual);
+  const fight=pose==='atk'||pose==='charge'||pose==='hurt';
+  const view=S.onBoat?'up':fight?'atk':(moved?'run':S.dir);
+  let atkF=0;
+  if(pose==='atk'){const p=1-S.atkT/(S.atkDur||.3),seq=[[1,2,3,5],[2,3,4,5],[0,2,3,4,5]][(C.combo||0)%3];atkF=seq[Math.min(seq.length-1,Math.floor(p*seq.length))]}
+  else if(pose==='charge')atkF=1;
+  setHeroFrame({view,runF:moved?runF:0,atkF,pose,item,water:hasW,dual,rollA:pose==='roll'?Math.round(time*14)%8*.785:0,lamp:S.lanternOn&&hh!=='lantern',skates:S.skates.on&&!S.onBoat,wobble:moved?Math.round(time*10):0});
   const inCar=S.car.on&&!S.inCave;hero.visible=!inCar;
   if(S.onBoat){
     const q=boatG.localToWorld(boatLampPos.set(.55,1.05,-3));
-    hero.position.set(q.x,q.y,q.z);hero.scale.set(1.7,1.7,1);heroShadow.visible=false;ripple.visible=false;heroMat.uniforms.uClip.value=0;return;
+    hero.position.set(q.x,q.y,q.z);hero.scale.set(HERO_W*.56,HERO_H*.56,1);heroShadow.visible=false;ripple.visible=false;heroMat.uniforms.uClip.value=0;return;
   }
   const depth=S.inCave||bridgeAt(S.x,S.z)?0:clamp(S.seaY-groundH(S.x,S.z),0,.42),bob=moved?Math.abs(step)*.09:0,squash=1+(moved?Math.abs(step)*.04:Math.sin(time*2)*.012);
   const cut=depth*1.3,up=WU.uUp.value;
-  heroMat.uniforms.uClip.value=cut/3.2;
+  heroMat.uniforms.uClip.value=cut/HERO_H;
   hero.position.set(S.x-up.x*cut,baseY+S.air+bob-up.y*cut+.02,S.z+.02-up.z*cut);
-  const fl=(S.flip&&S.dir==='side')?-1:1;
-  hero.scale.set(3.2*fl*(2-squash),3.2*squash,1);
+  const fl=S.flip&&(view==='run'||view==='atk'||view==='side')?-1:1;
+  hero.scale.set(HERO_W*fl*(2-squash),HERO_H*squash,1);
   heroShadow.visible=true;heroShadow.position.set(S.x,baseY+.08,S.z+.05);const sh=1.9*(1-Math.min(.5,S.air*.2));heroShadow.scale.set(sh,1,sh*.42);
   ripple.visible=depth>.03;if(ripple.visible){ripple.position.set(S.x,baseY+.09,S.z+.02);const s=2+Math.sin(time*3)*.25;ripple.scale.set(s,1,s*.62)}
 }

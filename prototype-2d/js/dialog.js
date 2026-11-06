@@ -2,7 +2,7 @@
 const DLG={on:null};
 const FACES={};
 function faceOf(who){
-  if(who==='hero')return FACES.hero||(FACES.hero=heroPortrait(480));
+  if(who==='hero')return heroImg.complete?(FACES.hero||(FACES.hero=heroPortrait(480))):heroPortrait(240);
   const k=who==='shadow'?'shadow':'m'+(S.level>=5?2:S.level>=3?1:0);
   if(!FACES[k])FACES[k]=who==='shadow'?monsterPortrait(0,true):monsterPortrait(S.level>=5?2:S.level>=3?1:0,false);
   return FACES[k];
