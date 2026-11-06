@@ -1,6 +1,6 @@
 /* Spoon It 2D: настройки, данные и состояние. Баланс совпадает с первым прототипом */
 const CFG = {
-  dayLen: 20*60, nightLen: 6*60, duskLen: 45,
+  dayLen: 10*60, nightLen: 6*60, duskLen: 45,
   g: 1.2, payK: 13.4, payP: .66, nightPay: 2,
   drop: 1.6, hotR: 112, hotFromLevel: 5,
   hungry: 25, fed: 50, darkLimit: 10,
@@ -15,12 +15,12 @@ const CFG = {
   zoomMin: .6, zoomMax: 3.4, caveEvery: 1,
 };
 const LEVELS = [
-  {monster:'Зверёк',  liters:1,    bp:'Половник', tool:'ladle',    text:'Тара на 0,3 л. Сделай её на верстаке из shilver и дров.'},
-  {monster:'Зверёк',  liters:12,   bp:'Кастрюля', tool:'pot',      text:'Тара на 1 л. Сделай её на верстаке из shilver и дров.'},
-  {monster:'Зверёк',  liters:60,   bp:'Ведро',    tool:'bucket',   text:'Тара на 5 л. Сделай её на верстаке из shilver и дров.'},
+  {monster:'Зверёк',  liters:1,    bp:'Половник', tool:'ladle',    text:'Тара на 0,3 л. Сделай её на верстаке из высеребра и дров.'},
+  {monster:'Зверёк',  liters:12,   bp:'Кастрюля', tool:'pot',      text:'Тара на 1 л. Сделай её на верстаке из высеребра и дров.'},
+  {monster:'Зверёк',  liters:60,   bp:'Ведро',    tool:'bucket',   text:'Тара на 5 л. Сделай её на верстаке из высеребра и дров.'},
   {monster:'Зверёк',  liters:300,  bp:'Шланг',    text:'Сделай его на верстаке. Он занимает 3 клетки, ставится где угодно и принимает воду вместо монстра.'},
   {monster:'Зверёк',  liters:800,  bp:'Тачка',    text:'На суше ты теперь ходишь быстрее.'},
-  {monster:'Бесёнок', liters:2500, bp:'Канистра', tool:'canister', text:'Тара на 50 л. Сделай её на верстаке из shilver и дров.'},
+  {monster:'Бесёнок', liters:2500, bp:'Канистра', tool:'canister', text:'Тара на 50 л. Сделай её на верстаке из высеребра и дров.'},
   {monster:'Бесёнок', liters:8000, bp:null,       text:''},
 ];
 const TOOLS = {
@@ -44,7 +44,7 @@ const SKILLS=[
     {id:'fisher',name:'Рыбак',text:'Шанс вытащить вторую рыбу',max:3,c0:15,req:'row'}]},
 ];
 SKILLS.push({group:'Боец',note:'Когти и карты в пещерах',items:[
-  {id:'claw',name:'Острые когти',text:'Удары сильнее на 25%',max:5,c0:14},
+  {id:'claw',name:'Тяжёлая ложка',text:'Удары ложкой сильнее на 25%',max:5,c0:14},
   {id:'hide',name:'Толстая шкура',text:'Ещё одно сердце',max:3,c0:30,req:'claw'},
   {id:'deck',name:'Краплёная колода',text:'Карты бьют сильнее и тратят меньше азарта',max:3,c0:20,req:'claw'}]});
 const PHRASES=[
@@ -93,7 +93,7 @@ const LOCS=[
 /* ---------- состояние ---------- */
 const S={
   mode:'start',ui:null,t:70,day:1,level:0,meter:0,debt:0,nightBlood:0,baseSea:0,seaY:0,
-  shilver:0,xp:0,stash:{base:0,boat:0},water:0,berries:0,fish:0,food:0,wood:0,finds:0,holy:0,tmap:0,blessedDay:-1,
+  shilver:0,xp:0,heroLv:1,pts:0,stash:{base:0,boat:0},water:0,berries:0,fish:0,food:0,wood:0,finds:0,holy:0,tmap:0,blessedDay:-1,
   sat:82,stam:100,lantern:100,buff:0,darkT:0,attacking:false,bleeding:false,stealT:0,
   thirsty:false,pouredToday:false,lit:true,safe:false,chestOpen:false,inv:[],hot:[null,null,null,null],sel:0,invSlot:0,firsts:{},bubbleT:0,thanksText:'',phraseI:0,phraseT:7,payFrac:0,wakeT:0,
   sk:{steady:0,run:0,endur:0,jump:0,gut:0,dark:0,row:0,fisher:0,claw:0,hide:0,deck:0},

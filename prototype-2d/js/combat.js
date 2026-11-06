@@ -1,20 +1,92 @@
 /* Пещеры и бой. Цепочка залов: зачистил зал, открылись двери, выбрал следующую награду.
    Удары когтями сериями, тяжёлый удар при удержании, карты на азарте, кувырок с неуязвимостью */
-const C={rooms:0,i:0,enemies:[],shots:[],picks:[],fx:[],doors:[],clear:false,cave:null,solids:[],stop:0,shake:0,torches:[],reward:null,trans:0,boss:null,lv:0,back:null};
+const C={rings:[],spikes:[],fires:[],rooms:0,i:0,enemies:[],shots:[],picks:[],fx:[],doors:[],clear:false,cave:null,solids:[],stop:0,shake:0,torches:[],reward:null,trans:0,boss:null,lv:0,back:null};
 const caveFloor=new THREE.Mesh(flatGeo,regFlat(makeMat(A.dig.tex,true)));caveFloor.renderOrder=-20;caveG.add(caveFloor);
 const caveWall=new THREE.Mesh(spriteGeo,makeMat(A.dig.tex,false));caveWall.renderOrder=-15;caveG.add(caveWall);
 const caveFront=new THREE.Mesh(spriteGeo,makeMat(A.dig.tex,false,{depth:false}));caveFront.renderOrder=50;caveG.add(caveFront);
-const slashMats=A.slash.map(a=>regFlat(makeMat(a.tex,true,{glow:1,op:0})));
-const slashM=new THREE.Mesh(flatGeo,slashMats[0]);slashM.renderOrder=-3;slashM.visible=false;caveG.add(slashM);
+const slashMat=regFlat(makeMat(A.slash[0].tex,true,{glow:1,op:0}));
+const slashM=new THREE.Mesh(flatGeo,slashMat);slashM.renderOrder=-3;slashM.visible=false;caveG.add(slashM);
 const slamMat=regFlat(makeMat(A.slam.tex,true,{glow:1,op:0})),slamM=new THREE.Mesh(flatGeo,slamMat);slamM.renderOrder=-3;slamM.visible=false;caveG.add(slamM);
 const aimMat=regFlat(makeMat(A.ring.tex,true,{op:.5,glow:1})),aimM=new THREE.Mesh(flatGeo,aimMat);aimM.renderOrder=-4;aimM.visible=false;caveG.add(aimM);
 const caveCache=new Map();
-function caveArt(lv){const k=lv%8;if(!caveCache.has(k))caveCache.set(k,{floor:artCaveFloor(k),wall:artCaveWall(k),front:artCaveFront(k),pillar:artPillar(k)});return caveCache.get(k)}
-const ENEMY={grub:{hp:3,speed:2.4,r:1.1,scale:1},spitter:{hp:3,speed:1.7,r:1,scale:1},hopper:{hp:4,speed:0,r:1,scale:1},brute:{hp:24,speed:1.5,r:2,scale:1}};
+function caveArt(lv){const k=lv%8;if(!caveCache.has(k))caveCache.set(k,{floor:artCaveFloor(k),wall:artCaveWall(k),front:artCaveFront(k),pillar:artPillar(k),side:sheetArtTint('dFront',6.4,k)});return caveCache.get(k)}
+/* ---------- Звонарь: кадры, эффекты и атаки ---------- */
+const bossImg=new Image();bossImg.src=BOSS_SHEET;
+const BK=.031,B_W=15,B_H=10;
+A.boss=art(B_W,B_H,null,40);A.en.brute=[A.boss];
+function bossPart(r,wm){const c=document.createElement('canvas');c.width=r.w;c.height=r.h;const tex=new THREE.CanvasTexture(c),draw=()=>{c.getContext('2d').drawImage(bossImg,r.x,r.y,r.w,r.h,0,0,r.w,r.h);tex.needsUpdate=true};if(bossImg.complete&&bossImg.naturalWidth)draw();else bossImg.addEventListener('load',draw);return{tex,w:wm,h:wm*r.h/r.w,c}}
+A.bRing=BF.ring.map(r=>bossPart(r,2));A.bSpike=bossPart(BF.spike[0],2.6);A.bFire=BF.fire.map(r=>bossPart(r,2.8));A.bossIcon=bossPart(BF.idle[0],2);
+let bossKey='';
+function drawBoss(group,i){const key=group+i;if(key===bossKey||!bossImg.complete)return;bossKey=key;const g=A.boss.g,l=BF[group],f=l[i%l.length];g.clearRect(0,0,B_W,B_H);g.drawImage(bossImg,f.x,f.y,f.w,f.h,B_W/2-f.ax*BK,B_H-f.ay*BK,f.w*BK,f.h*BK);A.boss.tex.needsUpdate=true}
+const BA={claw:{g:'claw',dur:1.15,at:.6},toll:{g:'toll',dur:1.5,at:.9},slam:{g:'slam',dur:1.4,at:.7},shot:{g:'shot',dur:1.2,at:.7},call:{g:'toll',dur:1.1,at:.6}};
+function bossStart(e,act,ux,uz){e.act=act;e.last=act;e.t0=0;e.done=false;e.dx=ux;e.dz=uz;e.face=ux>=0?1:-1;e.st=act==='dash'?'dashWind':'atk'}
+function bossPick(e,d,ux,uz){
+  if(e.next){const a=e.next;e.next=null;return bossStart(e,a,ux,uz)}
+  let pool=d<6.5?['claw','claw','toll','slam','shot']:['dash','dash','toll','slam','shot'];if(C.enemies.length<3)pool.push('call');
+  pool=pool.filter(a=>a!==e.last);bossStart(e,pool[Math.floor(Math.random()*pool.length)],ux,uz);
+}
+function addBossRing(x,z){const m=inCaveG(()=>flat(A.bRing[0],x,z,2,2,.1,regFlat(makeMat(A.bRing[0].tex,true,{glow:1})),-4,0));C.fx.push(m);C.rings.push({x,z,r:1,t:0,m,hit:false})}
+function dropSpike(x,z){const m=inCaveG(()=>flat(A.bRing[3],x,z,3,3,.08,regFlat(makeMat(A.bRing[3].tex,true,{glow:1,op:.7})),-4,0));C.fx.push(m);C.spikes.push({x,z,mark:m,st:'mark',t:1,hp:2,m:null,y:12})}
+function bossHit(e,a){
+  if(a==='claw'){const dx=S.x-e.x,dz=S.z-e.z,d=Math.hypot(dx,dz)||1;if(d<5.8&&Math.acos(clamp((dx*e.dx+dz*e.dz)/d,-1,1))<1.22)hurtPlayer(2,e.x,e.z);blip(200,.14,'sawtooth',.07)}
+  else if(a==='toll'){addBossRing(e.x,e.z);if(e.phase===2)e.ring2=.5;C.shake=.2;blip(330,.7,'triangle',.09);blip(347,.7,'triangle',.05)}
+  else if(a==='slam'){C.shake=.36;blip(80,.3,'sawtooth',.09);dropSpike(S.x,S.z);for(let i=0;i<6+(e.phase===2?2:0);i++)dropSpike((Math.random()-.5)*(ROOM.w-5),(Math.random()-.5)*(ROOM.d-4))}
+  else if(a==='shot'){const s=e.face;for(let i=-3;i<=3;i++){const k=Math.atan2(e.dz,e.dx)+i*.2;addShot(e.x+s*3,e.z,Math.cos(k)*8,Math.sin(k)*8,false)}blip(420,.14,'triangle',.06)}
+  else if(a==='call'){if(C.enemies.length<5){spawnEnemy('grub',e.x-3,e.z+2);spawnEnemy('grub',e.x+3,e.z+2)}blip(520,.4,'triangle',.05)}
+}
+function updateBoss(e,dt,ux,uz,d){
+  const k=e.phase===2?1.25:1;
+  if(e.ring2>0){e.ring2-=dt;if(e.ring2<=0)addBossRing(e.x,e.z)}
+  if(e.st==='death'){e.t0+=dt;drawBoss('death',Math.min(7,Math.floor(e.t0/.2)));if(e.t0>=1.7)killEnemy(e,0,0);return}
+  if(e.st==='roar'){e.t0+=dt;C.shake=Math.max(C.shake,.1);drawBoss('idle2',Math.floor(time*8)%4);if(e.t0>=1.5){e.st='idle';e.cd=.6}return}
+  if(e.st==='idle'){
+    e.face=ux>=0?1:-1;moveEnemy(e,ux*1.5,uz*1.5,dt);
+    drawBoss(e.phase===2?'idle2':d<3.5?'idle':'walk',Math.floor(time*(d<3.5?6:10)));
+    if(e.cd<=0)bossPick(e,d,ux,uz);
+  }else if(e.st==='atk'){
+    const a=BA[e.act],n=BF[a.g].length;e.t0+=dt*k;drawBoss(a.g,Math.min(n-1,Math.floor(e.t0/a.dur*n)));
+    if(!e.done&&e.t0>=a.at){e.done=true;bossHit(e,e.act)}
+    if(e.t0>=a.dur){e.st='idle';e.cd=1.1/k}
+  }else if(e.st==='dashWind'){
+    e.t0+=dt*k;drawBoss('dash',Math.min(2,Math.floor(e.t0/.8*3)));if(e.t0>=.8){e.st='dash';e.t0=0;e.dx=ux;e.dz=uz;e.face=ux>=0?1:-1;e.fireT=0;blip(150,.3,'sawtooth',.06)}
+  }else if(e.st==='dash'){
+    e.t0+=dt;moveEnemy(e,e.dx*14,e.dz*14,dt);drawBoss('dash',3+Math.floor(time*14)%4);
+    if(e.phase===2){e.fireT-=dt;if(e.fireT<=0){e.fireT=.22;const m=inCaveG(()=>spr(A.bFire[0],e.x,e.z,1,false,makeMat(A.bFire[0].tex,false,{glow:1}),0));C.fx.push(m);C.fires.push({x:e.x,z:e.z,t:4,m})}}
+    if(Math.abs(e.x)>ROOM.w/2-2.4||Math.abs(e.z)>ROOM.d/2-2.2){e.st='crash';e.t0=0;C.shake=.42;blip(70,.4,'sawtooth',.09)}
+    else if(e.t0>1.6){e.st='idle';e.cd=.3;e.next='claw'}
+  }else if(e.st==='crash'){e.t0+=dt;drawBoss('dash',7+Math.min(2,Math.floor(e.t0/.17)));if(e.t0>=.5){e.st='stun';e.tm=2.5}}
+  else if(e.st==='stun'){drawBoss('stun',Math.floor(time*6));if(e.tm<=0){e.st='idle';e.cd=.5}}
+  else if(e.tm<=0)e.st='idle';
+}
+function updateBossFx(dt){
+  for(let i=C.rings.length-1;i>=0;i--){const r=C.rings[i];r.t+=dt;r.r+=18*dt;r.m.scale.set(r.r*2,1,r.r*2);r.m.material.uniforms.map.value=A.bRing[Math.min(3,Math.floor(r.t*5))].tex;
+    const d=Math.hypot(S.x-r.x,S.z-r.z);if(!r.hit&&Math.abs(d-r.r)<1){r.hit=true;hurtPlayer(2,r.x,r.z)}
+    if(r.r>24){caveG.remove(r.m);flatMats.delete(r.m.material);r.m.material.dispose();C.rings.splice(i,1)}}
+  for(let i=C.spikes.length-1;i>=0;i--){const p=C.spikes[i];
+    if(p.st==='mark'){p.t-=dt;p.mark.material.uniforms.uOp.value=.35+.35*Math.sin(time*16);if(p.t<=0){p.st='fall';p.m=inCaveG(()=>spr(A.bSpike,p.x,p.z,1,false,undefined,12));C.fx.push(p.m)}}
+    else if(p.st==='fall'){p.y-=52*dt;p.m.position.y=Math.max(0,p.y);if(p.y<=0){p.st='stand';p.t=6;p.mark.visible=false;C.shake=Math.max(C.shake,.12);if(Math.hypot(S.x-p.x,S.z-p.z)<1.4)hurtPlayer(2,p.x,p.z);p.solid={x:p.x,z:p.z,r:.9};C.solids.push(p.solid);emit(A.puff,p.x,.5,p.z,0,1,0,.5,0,.9,true)}}
+    else{p.t-=dt;if(p.t<=0||p.hp<=0){caveG.remove(p.m);C.solids.splice(C.solids.indexOf(p.solid),1);C.spikes.splice(i,1)}}}
+  for(let i=C.fires.length-1;i>=0;i--){const f=C.fires[i];f.t-=dt;f.m.material.uniforms.map.value=A.bFire[Math.floor(time*9+i)%3].tex;f.m.material.uniforms.uOp.value=Math.min(1,f.t);if(Math.hypot(S.x-f.x,S.z-f.z)<1.2)hurtPlayer(1,f.x,f.z);if(f.t<=0){caveG.remove(f.m);f.m.material.dispose();C.fires.splice(i,1)}}
+}
+const ENEMY={grub:{hp:3,speed:2.4,r:1.1,scale:1},spitter:{hp:3,speed:1.7,r:1,scale:1},hopper:{hp:4,speed:0,r:1,scale:1},brute:{hp:36,speed:1.5,r:2.6,scale:1}};
 const hurtK=()=>1+C.lv*.35;
+/* следы лап в пещере: серая пыль, а после чужой крови красные */
+const PAWS=[];for(let i=0;i<18;i++){const m=new THREE.Mesh(flatGeo,regFlat(makeMat(A.paw[0].tex,true,{op:0})));m.visible=false;m.renderOrder=-7;m.scale.set(A.paw[0].w,1,A.paw[0].h);caveG.add(m);PAWS.push({m,t:0})}
+let pawI=0,pawD=0,pawS=1,pawBlood=0,pawX=0,pawZ=0;
+function stepPaw(dt){
+  const dx=S.x-pawX,dz=S.z-pawZ,d=Math.hypot(dx,dz);pawX=S.x;pawZ=S.z;if(d<.001||d>2)return;
+  for(const f of C.fx)if(f.userData.splat&&Math.hypot(f.position.x-S.x,f.position.z-S.z)<1.8)pawBlood=9;
+  pawD+=d;if(pawD<1.35)return;pawD=0;pawS=-pawS;
+  const p=PAWS[pawI++%PAWS.length],a=A.paw[pawBlood>0?1:0],nx=-dz/d,nz=dx/d;pawBlood=Math.max(0,pawBlood-1);
+  p.t=1;p.m.visible=true;p.m.material.uniforms.map.value=a.tex;p.m.material.uniforms.uOp.value=.7;
+  p.m.position.set(S.x+nx*.26*pawS,.06,S.z+nz*.26*pawS);p.m.rotation.y=Math.atan2(-dx,-dz)-.3;
+}
+function updatePaws(dt){for(const p of PAWS){if(!p.m.visible)continue;p.t-=dt/5;if(p.t<=0)p.m.visible=false;else p.m.material.uniforms.uOp.value=.7*Math.min(1,p.t*2.2)}}
 function clearRoom(){
+  for(const p of PAWS)p.m.visible=false;pawX=S.x;pawZ=S.z;
   for(const e of C.enemies)removeEnemy(e);for(const s of C.shots)caveG.remove(s.m);for(const p of C.picks)caveG.remove(p.m);
   for(const f of C.fx)caveG.remove(f);for(const d of C.doors){caveG.remove(d.m);if(d.icon)caveG.remove(d.icon)}for(const t of C.torches)caveG.remove(t.m);
+  for(const r of C.rings)flatMats.delete(r.m.material);C.rings=[];C.spikes=[];C.fires=[];bossKey='';
   C.enemies=[];C.shots=[];C.picks=[];C.fx=[];C.doors=[];C.torches=[];C.solids=[];C.boss=null;
 }
 const inCaveG=fn=>{const p=parentG;parentG=caveG;const r=fn();parentG=p;return r};
@@ -26,15 +98,16 @@ function buildRoom(){
   caveWall.material.uniforms.map.value=set.wall.tex;caveWall.position.set(0,0,-ROOM.d/2-.3);caveWall.scale.set(32,9,1);
   caveFront.material.uniforms.map.value=set.front.tex;caveFront.scale.set(36,5,1);
   inCaveG(()=>{
-    for(const x of[-11,11,-5.5,5.5]){const m=spr(A.torch[0],x,-ROOM.d/2+.1,1.1,false,makeMat(A.torch[0].tex,false,{glow:.8}),0);C.torches.push({m,x,z:-ROOM.d/2+.6,ph:x})}
+    for(const x of[-11,11,-5.5,5.5]){const m=spr(A.torch[0],x,-ROOM.d/2+.1,1,false,makeMat(A.torch[0].tex,false,{glow:.65}),3.1);C.torches.push({m,x,z:-ROOM.d/2+.6,ph:(x+20)*2})}
+    for(const sg of[-1,1])for(let z=-ROOM.d/2+.9,i=0;z<ROOM.d/2+3.4;z+=2.5,i++){C.fx.push(spr(set.side,sg*(ROOM.w/2+.9+hash(i,3)*1.1),z,.92+hash(i,5)*.2,(i+(sg>0?1:0))%2===0,undefined,0))}
     const n=boss?0:1+Math.floor(hash(C.i,lv+2)*3);
     for(let i=0;i<n;i++){const x=(hash(i,C.i+7)-.5)*ROOM.w*.74,z=(hash(i,C.i+9)-.5)*ROOM.d*.6;if(Math.hypot(x,z-ROOM.d/2)<5)continue;
-      const m=spr(set.pillar,x,z,.8,false,undefined,0);C.fx.push(m);C.solids.push({x,z,r:1.3})}
+      const m=spr(set.pillar,x,z,1,false,undefined,0);C.fx.push(m);C.solids.push({x,z,r:1.3})}
     for(let i=0;i<24;i++){const x=(hash(i,C.i+3)-.5)*ROOM.w,z=(hash(i,C.i+5)-.5)*ROOM.d,k=hash(i,11);
-      const a=k<.3?A.glow:k<.55?A.skull:k<.8?A.mush:A.shell;const m=spr(a,x,z,.8,i%2===0,undefined,0);C.fx.push(m)}
+      const a=k<.5?A.glow:A.mush;const m=spr(a,x,z,.8,i%2===0,undefined,0);C.fx.push(m)}
   });
   C.fx.push(C.doorM=inCaveG(()=>spr(A.door,0,-ROOM.d/2+.2,1,false,undefined,0)));C.chest=null;
-  if(boss){spawnEnemy('brute',0,-2);$('bossName').textContent=`Страж пещеры`;C.boss=C.enemies[0]}
+  if(boss){spawnEnemy('brute',0,-2);C.enemies[0].face=1;C.enemies[0].phase=1;C.enemies[0].t0=0;drawBoss('idle',0);$('bossName').textContent=`Звонарь`;C.boss=C.enemies[0]}
   else{
     const n=Math.min(7,2+Math.floor(lv*.6)+Math.floor(C.i*.7));
     for(let i=0;i<n;i++){
@@ -70,7 +143,7 @@ function leaveCave(cleared){
   S.x=C.back.x;S.z=C.back.z;S.y=Yat(S.x,S.z);S.dir='down';
   $('combatHud').style.display='none';$('bossBar').style.display='none';$('caveMini').style.display='none';$('dev').style.display='';
   const loot=S.run.sh;
-  if(cleared){S.shilver+=loot;S.caves[c.id]=S.day;gainXP(25+c.lv*15,'пещера зачищена');showCard('Пещера пройдена',c.name,`Добыча: ${loot} shilver`,4)}
+  if(cleared){S.shilver+=loot;S.caves[c.id]=S.day;gainXP(25+c.lv*15,'пещера зачищена');showCard('Пещера пройдена',c.name,`Добыча: ${loot} высеребра`,4)}
   else{
     /* смерть: вся добыча пещеры пропадает, герой просыпается дома, а корабль оказывается у родного берега */
     const q=houseW(-1.9,-.9);S.x=q.x;S.z=q.z;S.y=Yat(q.x,q.z);
@@ -106,10 +179,13 @@ function startAttack(){
   const[dx,dz]=aimDir();S.ax=dx;S.az=dz;faceTo(dx,dz);
   const i=(C.comboT>0?C.combo+1:0)%3;C.combo=i;const a=ATK[i];
   S.atkT=a.t;S.atkDur=a.t;C.hitAt=a.t-a.hit;C.struck=false;S.lvx=dx*a.lunge;S.lvz=dz*a.lunge;C.comboT=.5;
-  slashM.material=slashMats[i===2?1:0];slashM.position.set(S.x+dx*1.7,.12,S.z+dz*1.7);slashM.rotation.y=Math.atan2(-dx,-dz)+(i===1?Math.PI:0);slashM.scale.set(i===2?5.6:4.6,1,i===2?3.4:2.8);slashM.visible=true;slashM.material.uniforms.uOp.value=.6;
+  /* на листе дуга смотрит вверх и вправо, на втором ударе зеркально */
+  const big=i===2?1.25:1,mir=i===1?-1:1;C.slashT=0;slashMat.uniforms.map.value=A.slash[0].tex;slashMat.uniforms.uOp.value=1;
+  slashM.position.set(S.x+dx*2.1,.12,S.z+dz*2.1);slashM.rotation.y=Math.atan2(-dx,-dz)+.72*mir;slashM.scale.set(5*big*mir,1,4.24*big);slashM.visible=true;
   blip(i===2?260:340,.08,'sawtooth',.05);
 }
 function strike(a){
+  for(const p of C.spikes)if(p.st==='stand'&&Math.hypot(p.x-S.x,p.z-S.z)<a.reach+.6){p.hp--;blip(300,.08,'square',.05);emit(A.puff,p.x,.8,p.z,0,1,0,.4,0,.7,true)}
   for(const e of C.enemies){if(e.st==='spawn'||e.dead)continue;const ex=e.x-S.x,ez=e.z-S.z,d=Math.hypot(ex,ez);
     if(d<a.reach+e.r*.5&&(d<1.2||Math.acos(clamp((ex*S.ax+ez*S.az)/d,-1,1))<a.arc)){hitEnemy(e,a.dmg*dmgK(),S.ax,S.az,a.dmg>2?10:7)}}
 }
@@ -124,21 +200,29 @@ function throwCards(){
   for(const k of[-.22,0,.22]){const c=Math.cos(k),s=Math.sin(k);addShot(S.x+dx*1.2,S.z+dz*1.2,(dx*c-dz*s)*19,(dx*s+dz*c)*19,true)}
 }
 function addShot(x,z,vx,vz,mine){
-  const a=mine?A.card:A.orb[C.lv>3?1:0],m=inCaveG(()=>spr(a,x,z,mine?1:1.1,false,makeMat(a.tex,false,{glow:1}),.9));
+  let m;
+  if(mine)m=inCaveG(()=>spr(A.card,x,z,1,false,makeMat(A.card.tex,false,{glow:1}),.9));
+  else{const a=A.rock2[C.lv>3?1:0];m=inCaveG(()=>flat(a,x,z,a.w,a.h,.9,regFlat(makeMat(a.tex,true,{glow:.7})),6,0));
+    m.rotation.y=Math.atan2(-vz,vx)-Math.atan2(-.46,-.89)}
   C.shots.push({x,z,vx,vz,m,mine,life:mine?.9:5.5});
 }
 function hitEnemy(e,dmg,dx,dz,kb){
-  e.hp-=dmg;e.flash=1;C.struck=true;e.kx=dx*kb;e.kz=dz*kb;C.stop=Math.max(C.stop,.055);C.shake=Math.max(C.shake,.1);
-  S.azart=Math.min(100,S.azart+6);blip(190+Math.random()*80,.07,'square',.05);
+  const bell=e.t==='brute';
+  if(bell&&(e.st==='roar'||e.st==='death'))return;
+  if(bell&&e.st==='stun')dmg*=2;
+  e.hp-=dmg;e.flash=1;C.struck=true;if(!bell){e.kx=dx*kb;e.kz=dz*kb}C.stop=Math.max(C.stop,.055);C.shake=Math.max(C.shake,.1);
+  S.azart=Math.min(100,S.azart+6);if(bell)blip(640+Math.random()*90,.24,'triangle',.06);else blip(190+Math.random()*80,.07,'square',.05);
   emit(A.drop,e.x,1,e.z,dx*5,3,dz*5,.4,10,1.4,true);
   if(e.st==='wind'&&e.t!=='brute'){e.st='rest';e.tm=.5}
+  if(bell&&e.hp<=0){e.st='death';e.t0=0;C.shake=.4;blip(120,.8,'triangle',.09);return}
+  if(bell&&e.phase===1&&e.hp<e.max*.5){e.phase=2;e.st='roar';e.t0=0;e.next=null;blip(260,.9,'sawtooth',.07);return}
   if(e.hp<=0)killEnemy(e,dx,dz);
 }
 function killEnemy(e,dx,dz){
   e.dead=true;removeEnemy(e);C.enemies.splice(C.enemies.indexOf(e),1);C.stop=.09;C.shake=.2;blip(110,.2,'sawtooth',.07);
-  C.fx.push(inCaveG(()=>flat(A.splat[e.t==='spitter'?1:0],e.x,e.z,e.t==='brute'?7:3,e.t==='brute'?4.4:2,.03,undefined,-6,0)));
+  {const q=inCaveG(()=>flat(A.splat[e.t==='spitter'?1:0],e.x,e.z,e.t==='brute'?7:3,e.t==='brute'?4.4:2,.03,undefined,-6,0));q.userData.splat=true;C.fx.push(q)}
   for(let i=0;i<7;i++)emit(A.puff,e.x,.8,e.z,(Math.random()-.5)*5+dx*3,Math.random()*3,(Math.random()-.5)*4+dz*3,.5,0,.8,true);
-  const n=e.t==='brute'?10:1+Math.floor(Math.random()*3);
+  const n=e.t==='brute'?16:1+Math.floor(Math.random()*3);
   for(let i=0;i<n;i++)addPick('ingot',e.x+(Math.random()-.5)*1.6,e.z+(Math.random()-.5)*1.2);
   if(Math.random()<.18)addPick('heart',e.x,e.z);
   if(e===C.boss){$('bossBar').style.display='none';C.boss=null}
@@ -173,8 +257,8 @@ function caveAction(){
   return null;
 }
 /* сетка пути: ярусы снизу вверх, из комнаты ведут одна или две дорожки */
-const NODE_ICON={shilver:'ingot',heart:'heart',food:'crate',map:'treasure',buff:'card',boss:'skull'};
-const NODE_NAME={shilver:'Добыча: много shilver',heart:'Здоровье',food:'Корм',map:'Карта сокровищ',buff:'Карта удачи',boss:'Страж пещеры'};
+const NODE_ICON={shilver:'ingot',heart:'heart',food:'crate',map:'treasure',buff:'card',boss:'bossIcon'};
+const NODE_NAME={shilver:'Добыча: много высеребра',heart:'Здоровье',food:'Корм',map:'Карта сокровищ',buff:'Карта удачи',boss:'Страж пещеры'};
 function makeGraph(n){
   const pool=['shilver','shilver','heart','food','buff','map'],layers=[];
   for(let i=0;i<n;i++){
@@ -258,28 +342,22 @@ function updateEnemy(e,dt){
     else if(e.st==='rest'&&e.tm<=0)e.st='idle';
   }else{
     /* страж: рывок, кольцо снарядов, вызов слепышей */
-    if(e.st==='idle'){moveEnemy(e,ux*1.5,uz*1.5,dt);if(e.cd<=0){const r=Math.random();e.act=r<.45?'dash':r<.8?'ring':'call';e.st='wind';e.tm=e.act==='dash'?.8:.7;e.dx=ux;e.dz=uz}}
-    else if(e.st==='wind'){if(e.tm<=0){
-      if(e.act==='dash'){e.st='dash';e.tm=.8}
-      else if(e.act==='ring'){const n=14;for(let i=0;i<n;i++){const a=i/n*6.283;addShot(e.x,e.z,Math.cos(a)*7.5,Math.sin(a)*7.5,false)}e.st='rest';e.tm=.9;e.cd=1.6}
-      else{if(C.enemies.length<5){spawnEnemy('grub',e.x-3,e.z+2);spawnEnemy('grub',e.x+3,e.z+2)}e.st='rest';e.tm=.9;e.cd=2}}}
-    else if(e.st==='dash'){moveEnemy(e,e.dx*14,e.dz*14,dt);if(e.tm<=0||Math.abs(e.x)>ROOM.w/2-2.4||Math.abs(e.z)>ROOM.d/2-2.2){e.st='rest';e.tm=1.2;e.cd=1.2;C.shake=.24}}
-    else if(e.tm<=0)e.st='idle';
+    updateBoss(e,dt,ux,uz,d);
   }
-  if(e.st!=='spawn'&&e.st!=='jump'&&e.y<.1&&d<e.r+.5)hurtPlayer(e.t==='brute'?2:1,e.x,e.z);
+  if(e.st!=='spawn'&&e.st!=='jump'&&e.st!=='stun'&&e.st!=='crash'&&e.st!=='death'&&e.st!=='roar'&&e.y<.1&&d<e.r+.5)hurtPlayer(e.t==='brute'?2:1,e.x,e.z);
   /* вид */
-  e.fr=(e.st==='wind'||Math.floor(time*6+e.x)%2)?1:0;
+  e.fr=e.t==='brute'?0:(e.st==='wind'||Math.floor(time*6+e.x)%2)?1:0;
   const mat=e.mats[e.fr];e.m.material=mat;mat.uniforms.uFlash.value=e.st==='wind'?(.35+.35*Math.sin(time*30)):e.flash;
   const f=e.f[0],sq=e.st==='spawn'?clamp(1-e.tm/.55,.01,1):e.st==='wind'?.9:1;
-  e.m.position.set(e.x,e.y,e.z);e.m.scale.set(f.w*(dx<0?1:-1)*(e.t==='grub'?-1:1)*(2-sq),f.h*sq,1);
-  e.sh.position.set(e.x,.05,e.z);e.sh.scale.set(f.w*.8*(1-Math.min(.6,e.y*.1)),1,f.w*.32*(1-Math.min(.6,e.y*.1)));
+  e.m.position.set(e.x,e.y,e.z);e.m.scale.set(f.w*(e.t==='brute'?e.face:(dx<0?1:-1)*(e.t==='grub'?-1:1))*(2-sq),f.h*sq,1);
+  e.sh.position.set(e.x,.05,e.z);{const sw=e.t==='brute'?8.5:f.w*.8;e.sh.scale.set(sw*(1-Math.min(.6,e.y*.1)),1,sw*.4*(1-Math.min(.6,e.y*.1)))}
 }
 function updateShots(dt){
   for(let i=C.shots.length-1;i>=0;i--){
     const s=C.shots[i];s.life-=dt;s.x+=s.vx*dt;s.z+=s.vz*dt;s.m.position.set(s.x,.9,s.z);let gone=s.life<=0||Math.abs(s.x)>ROOM.w/2-.6||Math.abs(s.z)>ROOM.d/2-.4;
     if(s.mine){for(const e of C.enemies){if(e.st==='spawn')continue;if(Math.hypot(e.x-s.x,e.z-s.z)<e.r+.3){hitEnemy(e,(1.6+S.sk.deck*.5)*(1+S.sk.claw*.1),s.vx/19,s.vz/19,5);gone=true;break}}}
     else if(Math.hypot(S.x-s.x,S.z-s.z)<.8){hurtPlayer(1,s.x,s.z);gone=true}
-    if(gone){caveG.remove(s.m);s.m.material.dispose();C.shots.splice(i,1)}
+    if(gone){caveG.remove(s.m);flatMats.delete(s.m.material);s.m.material.dispose();C.shots.splice(i,1)}
   }
 }
 function updatePicks(dt){
@@ -321,12 +399,12 @@ function updateCombat(dt0){
   S.stam=Math.min(100,S.stam+22*dt);
   for(const e of[...C.enemies])updateEnemy(e,dt);
   for(let i=0;i<C.enemies.length;i++)for(let j=i+1;j<C.enemies.length;j++){const a=C.enemies[i],b=C.enemies[j],dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||1,m=a.r+b.r*.6;if(d<m){const p=(m-d)*.5;a.x-=dx/d*p;a.z-=dz/d*p;b.x+=dx/d*p;b.z+=dz/d*p}}
-  updateShots(dt);updatePicks(dt);
+  updateShots(dt);updatePicks(dt);updateBossFx(dt);
   if(C.chest&&C.chest.open)for(const d of C.doors)if(Math.hypot(S.x-d.x,S.z-d.z)<2.2)return nextRoom(d);
 }
 function tryRoll(){
   const cost=15-S.sk.jump*2;
-  if(S.rollT>0||S.stam<cost||S.car.on)return;
+  if(S.rollT>0||S.stam<cost||S.car.on||S.scoopT>0)return;
   if(!S.inCave&&S.water>0){S.water*=1-.15*clamp(S.water/toolCap(),0,1)*Math.pow(.8,S.sk.steady);for(let i=0;i<4;i++)dropFrom()}
   const ix=(keys.KeyD?1:0)-(keys.KeyA?1:0),iz=(keys.KeyS?1:0)-(keys.KeyW?1:0);let dx=ix,dz=iz;
   if(!dx&&!dz){dx=S.fx;dz=S.fz;if(!dx&&!dz)dz=1}const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;
@@ -340,14 +418,15 @@ function moveHero(dx,dz){
 function updateCaveScene(dt){
   const flick=1+Math.sin(time*9)*.08;
   addL(S.x,S.z,15,.8*flick,[1,.86,.7]);
-  for(const t of C.torches){addL(t.x,t.z+2,11,.85*flick,[1,.62,.3]);t.m.material.uniforms.map.value=A.torch[Math.floor(time*8+t.ph)%3].tex}
+  for(const t of C.torches){addL(t.x,t.z+2,11,.85*flick,[1,.62,.3]);t.m.material.uniforms.map.value=A.torch[Math.floor(time*9+t.ph)%4].tex}
   if(S.chargeT>.3)addL(S.x,S.z,7,.6,[1,.9,.5]);
   if(S.lanternOn)addL(S.x,S.z,22,.55,[1,.82,.55]);
   if(C.chest&&!C.chest.open)addL(C.chest.x,C.chest.z,8,.7+Math.sin(time*3)*.15,[1,.85,.45]);
-  const sm=slashM.material.uniforms.uOp;if(slashM.visible){sm.value-=dt*6;if(sm.value<=0)slashM.visible=false}
+  if(slashM.visible){C.slashT+=dt;const f=Math.floor(C.slashT*30);if(f>7)slashM.visible=false;else{slashMat.uniforms.map.value=A.slash[Math.min(6,f)].tex;slashMat.uniforms.uOp.value=f>5?1-(C.slashT*30-6)/2:1}}
+  stepPaw(dt);updatePaws(dt);
   if(slamM.visible){slamMat.uniforms.uOp.value-=dt*4;slamM.scale.x+=dt*14;slamM.scale.z+=dt*14;if(slamMat.uniforms.uOp.value<=0)slamM.visible=false}
   heroMat.uniforms.uFlash.value=S.hurtT>0?.8:S.iframe>0&&Math.floor(time*14)%2?.25:0;
-  caveFront.position.set(CAM.x*.2,-3.4,ROOM.d/2+5.4);
+  caveFront.position.set(CAM.x*.2,-1.3,ROOM.d/2+5.4);
   if(C.boss){const b=$('bossBar');b.style.display='block';$('bossFill').style.width=clamp(C.boss.hp/C.boss.max*100,0,100)+'%'}
   let h='';const mx=hpMax();for(let i=0;i<mx;i+=2){const v=S.hp-i;h+=`<i class="${v>=2?'f':v===1?'h':''}"></i>`}
   const e=$('hearts');if(e.dataset.h!==h){e.dataset.h=h;e.innerHTML=h}

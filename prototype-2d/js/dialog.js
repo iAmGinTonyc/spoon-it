@@ -3,8 +3,8 @@ const DLG={on:null};
 const FACES={};
 function faceOf(who){
   if(who==='hero')return heroImg.complete?(FACES.hero||(FACES.hero=heroPortrait(480))):heroPortrait(240);
-  const k=who==='shadow'?'shadow':'m'+(S.level>=5?2:S.level>=3?1:0);
-  if(!FACES[k])FACES[k]=who==='shadow'?monsterPortrait(0,true):monsterPortrait(S.level>=5?2:S.level>=3?1:0,false);
+  const k=who==='shadow'?'shadow':'m'+monStage();
+  if(!FACES[k])FACES[k]=who==='shadow'?monsterPortrait(0,true):monsterPortrait(monStage(),false);
   return FACES[k];
 }
 const whoName=who=>who==='hero'?'Ты':who==='shadow'?'???':LEVELS[Math.min(S.level,LEVELS.length-1)].monster;
@@ -16,6 +16,7 @@ function showLine(){
   const box=$('dialog');box.className=l.who==='hero'?'':'right';if(l.shout)box.classList.add('shout');
   const c=$('dlgFace'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);g.drawImage(faceOf(l.who),0,0,c.width,c.height);
   $('dlgName').textContent=whoName(l.who);$('dlgLine').textContent='';
+  {const im=$('dlgItem');im.hidden=!l.item;if(l.item)im.src=INGOT_ICON}
   if(l.who!=='hero')blip(l.shout?150:300,.14,'triangle',.05);
 }
 function dlgNext(){

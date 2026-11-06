@@ -39,7 +39,7 @@ function handleKey(code){
   if(/^Digit[1-4]$/.test(code))selectSlot(+code.slice(5)-1);
   if(code==='KeyN'){S.t=CFG.dayLen-4;toast('Тест: ночь через 4 секунды')}
   if(code==='KeyK'){S.meter=Math.min(levelL()*.985,S.meter+levelL()*.985);toast('Тест: шкала почти полная')}
-  if(code==='KeyP'){S.shilver+=200;S.xp+=60}
+  if(code==='KeyP'){S.shilver+=200;gainXP(60)}
   if(code==='KeyJ'){S.food+=3;S.fish+=3;S.wood+=5}
   if(code==='KeyO')giveMap();
   if(code==='KeyU'&&!S.onBoat)enterCave(CAVES[0]);
@@ -59,7 +59,7 @@ addEventListener('mousemove',e=>{MOUSE.x=e.clientX;MOUSE.y=e.clientY;if(MOUSE.ri
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('wheel',e=>{e.preventDefault();if(S.mode==='play'&&!S.ui)zoomCam(Math.exp(e.deltaY*.0012))},{passive:false});
 $('miniC').addEventListener('mousedown',e=>{e.preventDefault();if(MG.on){MG.on.mouse=true;miniPress()}});
-$('shilverL').innerHTML=INGOT+'Shilver';
+$('shilverL').innerHTML=INGOT+'Высеребро';
 $('btnTree').onclick=()=>toggleUI('tree');$('btnInv').onclick=()=>toggleUI('inv');$('btnMap').onclick=()=>toggleUI('map');
 $('startBtn').onclick=()=>{initAudio();$('start').hidden=true;S.mode='wake';S.wakeT=0;document.body.classList.add('cine')};
 function showCard(kicker,title,text,sec){
@@ -106,7 +106,7 @@ function screenOf(x,y,z){
   const u=WU.uUp.value;v3.set(x+u.x*y,Yat(x,z)+u.y*y,z+u.z*y).project(camera);
   return{x:(v3.x*.5+.5)*innerWidth,y:(-v3.y*.5+.5)*innerHeight,off:Math.abs(v3.x)>1.02||Math.abs(v3.y)>1.02};
 }
-const monTop=()=>2.2+S.level*.75;
+const monTop=()=>monHeight();
 function updateFloats(){
   for(let i=floats.length-1;i>=0;i--){
     const f=floats[i],t=time-f.start;
@@ -150,9 +150,9 @@ function hintText(){
 }
 /* шкала воды стоит над монстром, а верхняя панель появляется, только когда его не видно */
 function updateMeter(){
-  const m=$('monMeter'),top=$('mon');
+  const m=$('monMeter');
   const q=screenOf(MOUTH.x,monTop(),MOUTH.z),show=S.mode==='play'&&!S.inCave&&!S.ui&&!q.off&&v3.z<1&&Math.hypot(MOUTH.x-CAM.x,MOUTH.z-CAM.z)<CAM.h*1.1;
-  m.style.display=show?'block':'none';top.style.display=show?'none':'block';
+  m.style.display=show?'block':'none';
   if(!show)return;
   const L=levelL(),lv=LEVELS[Math.min(S.level,LEVELS.length-1)];
   m.style.left=q.x+'px';m.style.top=q.y-6+'px';
@@ -182,15 +182,13 @@ function updateNav(){
   if(el.dataset.h!==h){el.dataset.h=h;el.innerHTML=h}
 }
 function updateHUD(){
-  const L=levelL(),lv=LEVELS[Math.min(S.level,LEVELS.length-1)];
-  setT('monName',`${lv.monster}, уровень ${S.level+1}`);
-  setT('monNum',`${fmtL(S.meter)} / ${fmtL(L)} л`);
-  $('monBar').style.width=clamp(S.meter/L*100,0,100)+'%';
-  $('debtBar').style.width=clamp(S.debt/L*100,0,100)+'%';
+  const L=levelL();
   const night=isNight(),left=night?CFG.dayLen+CFG.nightLen-S.t:CFG.dayLen-S.t;
   setT('clock',night?`Ночь ${S.day} · до утра ${mmss(left)}`:`День ${S.day} · до ночи ${mmss(left)}`);
   $('satBar').style.width=S.sat+'%';$('stamBar').style.width=S.stam+'%';$('lanBar').style.width=S.lantern+'%';
-  setT('shilverV',String(S.shilver));setT('xpV',String(Math.floor(S.xp)));
+  setT('shilverV',String(S.shilver));
+  {const need=xpNeed(S.heroLv);setT('heroLvV',String(S.heroLv));setT('xpV',`${Math.floor(S.xp)} / ${need}`);$('xpBar').style.width=clamp(S.xp/need*100,0,100)+'%';
+    setT('ptsV',String(S.pts));$('ptsRow').classList.toggle('on',S.pts>0);$('btnTree').classList.toggle('hot',S.pts>0)}
   updateMeter();updateBubble();updateFloats();updateNav();
   setT('depth',S.level>0&&!S.inCave?`Вода ушла на ${Math.round(-visY(S.baseSea))} м ниже старого берега`:'');
   if(S.ui&&S.cardT>0){S.cardT=0;$('card').hidden=true}
@@ -199,6 +197,7 @@ function updateHUD(){
     const h=S.hot[i],inf=itemInfo(h),el=$('hs'+i),cls='slot'+(i===S.sel?' on':'')+(h&&!inf.count?' empty':'');
     if(el.className!==cls)el.className=cls;
     setT('hn'+i,inf.name);setT('hc'+i,inf.short);
+    {const im=$('hi'+i),src=h?itemIcon(h):'';if(im.dataset.s!==String(h)+!!src){im.dataset.s=String(h)+!!src;if(src)im.src=src;else im.removeAttribute('src')}}
   }
   const a=getAction(),b=getPrimary(),pr=$('prompt');
   if(a||b){

@@ -2,14 +2,19 @@
 const nearFire=()=>{const p=me();return fires.some(f=>dist2(f,p)<11)};
 const atBase=()=>{const p=me();return dist2(BASE,p)<12};
 const nearCook=()=>{const p=me();return fires.some(f=>dist2(f,p)<4.5)||dist2(POT,p)<3.4};
-const nearMonster=()=>!S.onBoat&&dist2(MOUTH,S)<6.5;
+const nearMonster=()=>!S.onBoat&&dist2(MOUTH,S)<CRACK_A*crackK+3.2;
 const inHouse=()=>{if(S.onBoat)return false;const l=houseL(S.x,S.z);return Math.abs(l.x)<4.6&&Math.abs(l.z)<3.7};
 const nearestMap=(r)=>{let best=null,bd=r;for(const m of activeMaps()){const d=dist2(m,S.boat);if(d<bd){bd=d;best=m}}return best};
 
 /* ---------- сообщения ---------- */
 function toast(t){const d=document.createElement('div');d.textContent=t;$('toast').appendChild(d);
   setTimeout(()=>d.remove(),5500);while($('toast').children.length>5)$('toast').firstChild.remove()}
-function gainXP(v,why){S.xp+=v;if(why)toast(`+${Math.round(v)} опыта: ${why}`)}
+/* уровень героя: каждый следующий дороже, за уровень одно очко навыка */
+const xpNeed=lv=>Math.round(30*Math.pow(1.25,lv-1)/5)*5;
+function gainXP(v,why){
+  S.xp+=v;if(why)toast(`+${Math.round(v)} опыта: ${why}`);
+  while(S.xp>=xpNeed(S.heroLv)){S.xp-=xpNeed(S.heroLv);S.heroLv++;S.pts++;blip(520,.25,'triangle',.07);blip(780,.35,'triangle',.06);showCard('Новый уровень',`Уровень ${S.heroLv}`,'Очко навыка: открой древо, клавиша T',3.5)}
+}
 function firstTime(key,xp,why){if(!S.firsts[key]){S.firsts[key]=true;gainXP(xp,why)}}
 function eat(kind){
   kind=kind||['food','angler','ray','pike','eel','perch','herring','berries','fish'].find(k=>S[k]>0);
@@ -105,14 +110,14 @@ function toggleSkates(){
 function chargeLantern(){
   if(!S.have.lantern)return toast('Фонарь лежит в сундуке дома');
   if(S.lantern>=100)return toast('Фонарь полный');
-  if(S.shilver<CFG.lanternPrice)return toast(`Нужно ${CFG.lanternPrice} shilver`);
+  if(S.shilver<CFG.lanternPrice)return toast(`Нужно ${CFG.lanternPrice} высеребра`);
   S.shilver-=CFG.lanternPrice;S.lantern=Math.min(100,S.lantern+CFG.lanternStep);blip(700,.1);
 }
 function toggleStash(){
   const key=S.onBoat?'boat':(atBase()?'base':null);
   if(!key)return toast('Тайник есть только на базе и в лодке');
-  if(S.shilver>0){S.stash[key]+=S.shilver;S.shilver=0;toast(key==='boat'?'Shilver в лодке':'Shilver на полке на базе')}
-  else if(S.stash[key]>0){S.shilver=S.stash[key];S.stash[key]=0;toast('Забрал shilver')}
+  if(S.shilver>0){S.stash[key]+=S.shilver;S.shilver=0;toast(key==='boat'?'Высеребро в лодке':'Высеребро на полке на базе')}
+  else if(S.stash[key]>0){S.shilver=S.stash[key];S.stash[key]=0;toast('Забрал высеребро')}
 }
 function useHoly(){
   if(S.holy<=0)return toast('Святой воды нет');
@@ -123,16 +128,16 @@ function buildFire(){
   if(S.wood<CFG.firePrice)return toast(`Нужно ${CFG.firePrice} дров`);
   S.wood-=CFG.firePrice;addFire(S.x+S.fx*2,S.z+S.fz*2);toast('Костёр горит');
 }
-/* вода, до которой можно дотянуться: с лодки сразу, с берега в пределах 4,5 м */
+/* вода под черпаком: с лодки сразу, с берега только там, куда опускается ложка в кадре */
+const SCOOP_SPOT={right:[1,0],left:[-1,0],down:[.5,.6],up:[.9,-.5]};
 function waterReach(){
-  const p=me();
-  if(S.onBoat||groundH(p.x,p.z)<S.seaY-.15)return{x:p.x,z:p.z};
-  for(const r of[1.5,3,4.5])for(let i=0;i<12;i++){
-    const a=i/12*6.283,x=p.x+Math.cos(a)*r,z=p.z+Math.sin(a)*r;
-    if(groundH(x,z)<S.seaY-.15)return{x,z};
-  }
+  const p=me();if(S.onBoat)return{x:p.x,z:p.z};
+  const cur=S.dir==='side'?(S.flip?'left':'right'):S.dir;
+  for(const k of[cur,...['right','left','down','up'].filter(q=>q!==cur)]){const[a,b]=SCOOP_SPOT[k],x=p.x+a,z=p.z+b;if(groundH(x,z)<S.seaY-.12)return{x,z,side:k}}
   return null;
 }
+const POUR_T=.75;
+function faceMonster(){const dx=MOUTH.x-S.x,dz=MOUTH.z-S.z;S.dir=Math.abs(dz)>Math.abs(dx)?(dz<0?'up':'down'):'side';if(dx)S.flip=dx<0}
 function primaryAction(){
   const a=getPrimary();
   if(a)a.fn();else if(TOOLS[held()])scoopStart();
@@ -149,7 +154,9 @@ function scoopStart(){
   if(!S.have[S.tool]){toast('Нечем черпать: ложка в сундуке дома');return}
   if(hotAt(w.x,w.z)){toast('Кипяток: монстр такое не пьёт. Черпай за кольцом пара');return}
   if(S.water>=toolCap()-1e-6)return toast('Тара полная');
-  S.scoopT=toolScoop();blip(240,.1,'sine',.05);
+  /* волк поворачивается к воде, и пока черпает, стоит на месте */
+  if(w.side){S.dir=w.side==='left'||w.side==='right'?'side':w.side;if(S.dir==='side')S.flip=w.side==='left';S.fx=w.side==='right'?1:w.side==='left'?-1:0;S.fz=w.side==='down'?1:w.side==='up'?-1:0}
+  S.scoopSpot=w;S.scoopWet=false;S.scoopT=toolScoop();blip(240,.1,'sine',.05);
 }
 function hoseAction(){
   const h=S.hose,rest=h.burn>0?`качает ещё ${Math.ceil(h.burn)} с, `:'';
@@ -160,7 +167,7 @@ function hoseAction(){
 const darkLimit=()=>CFG.darkLimit+S.sk.dark*3;
 function endAttack(msg){S.attacking=false;S.bleeding=false;if(msg)toast(msg)}
 function steal(){
-  const order=[['water','воду'],['wood','дрова'],['berries','ягоды'],['fish','рыбу'],['food','еду'],['finds','находки'],['shilver','shilver']];
+  const order=[['water','воду'],['wood','дрова'],['berries','ягоды'],['fish','рыбу'],['food','еду'],['finds','находки'],['shilver','высеребро']];
   for(const[k,n]of order){
     if(S[k]>0){const v=k==='water'?S[k]:Math.max(1,Math.ceil(S[k]*.25));S[k]=Math.max(0,S[k]-v);toast(`Демоны унесли ${n}`);blip(110,.2,'sawtooth',.05);return true}
   }
@@ -246,7 +253,7 @@ function updateHose(dt){
 function pour(L,viaHose=false){
   S.payFrac+=CFG.payK*Math.pow(L,CFG.payP)*(isNight()?CFG.nightPay:1);
   const pay=Math.max(1,Math.floor(S.payFrac+1e-6));S.payFrac=Math.max(0,S.payFrac-pay);
-  S.shilver+=pay;S.pouredToday=true;S.bubbleT=2.2;
+  S.shilver+=pay;S.pouredToday=true;S.bubbleT=2.2;if(!viaHose)S.smile=0;
   {const set=PHRASES[Math.min(S.level,PHRASES.length-1)];S.thanksText=set.thanks[Math.floor(Math.random()*set.thanks.length)]}
   if(S.level<CFG.hotFromLevel)showHearts();
   gainXP(.5*Math.pow(L/.02,.25));firstTime('pour',5,'первая вода монстру');
@@ -255,10 +262,11 @@ function pour(L,viaHose=false){
   const toDebt=Math.min(S.debt,L);S.debt-=toDebt;L-=toDebt;
   S.meter=Math.min(levelL(),S.meter+L);
   blip(viaHose?180:320,.22,'triangle',.08);
-  splash(MOUTH.x,MOUTH.z+1,5);
+  if(!viaHose)pourArc();
+  splash(MOUTH.x,MOUTH.z+CRACK_B*crackK,viaHose?3:1);
   showGain(pay);
   if(toDebt>0)toast('Кровавая вода: монстр платит, но шкала стоит');
-  if(!S.firsts.drank){S.firsts.drank=true;if(!S.ui)say([{who:'monster',t:'Вода… Спасибо! Теперь я выживу.'},{who:'monster',t:'Но этого мало. Принеси ещё, пожалуйста!'}])}
+  if(!S.firsts.drank){S.firsts.drank=true;if(!S.ui)say([{who:'monster',t:'Вода… Спасибо! Теперь я выживу.'},{who:'monster',t:'Вот, держи. Это тебе.',item:'ingot'},{who:'hero',t:'Что это? Откуда этот запах?',item:'ingot'},{who:'monster',t:'Это высеребро. Лучше не нюхай.',item:'ingot'},{who:'monster',t:'Этого мало. Принеси ещё, пожалуйста!'}])}
   if(S.mapCharge>=CFG.mapEvery&&!S.ui)giveMap();
 }
 
@@ -289,12 +297,12 @@ function openTreasure(m){
   else if(gain('wood',3))extra=' и дрова';
   treasChest.position.set(m.x,0,m.z);chestUp=1;
   blip(880,.2);blip(1175,.3,'triangle',.07);
-  showCard('Выловлено','Сокровище!',`${sh} shilver${extra}`,4);
+  showCard('Выловлено','Сокровище!',`${sh} высеребра${extra}`,4);
 }
 function hauling(m){startWinch('Лебёдка: сокровище',()=>openTreasure(m),()=>toast('Трос оборвался. Сундук ещё на дне, попробуй снова'))}
 function dredge(w){startWinch('Лебёдка: обломки',()=>{
   w.cd=240;const sh=Math.round(20*(S.level+1)*(1+Math.random()));S.shilver+=sh;const wood=1+Math.floor(Math.random()*3);gain('wood',wood);gainXP(8+S.level*3);firstTime('dredge',12,'первые обломки');
-  showCard('Поднято со дна','Обломки',`${sh} shilver и дрова: ${wood}`,3.5);blip(620,.2,'triangle',.08)},
+  showCard('Поднято со дна','Обломки',`${sh} высеребра и дрова: ${wood}`,3.5);blip(620,.2,'triangle',.08)},
   ()=>{w.cd=20;toast('Трос оборвался')},.8)}
 
 /* ---------- что делает левая кнопка ---------- */
@@ -313,9 +321,9 @@ function getPrimary(){
   if(FOODS[h]&&S[h]>0)return{label:`Съесть: ${FOODS[h].name.toLowerCase()}`,fn(){eat(h)}};
   if(!TOOLS[h]||!S.have[h])return null;
   if(S.water>0){
-    if(nearMonster())return{label:`Влить воду: ${fmtL(S.water)} л`,fn(){pour(S.water);S.water=0;S.pourT=.35}};
+    if(nearMonster())return{label:`Влить воду: ${fmtL(S.water)} л`,fn(){faceMonster();pour(S.water);S.water=0;S.pourT=POUR_T}};
     const hs=S.hose,reach=S.onBoat?10:6;
-    if(hs.placed&&dist2(hs,me())<reach)return{label:`Влить в шланг: ${fmtL(S.water)} л`,fn(){pour(S.water,true);S.water=0;S.pourT=.35}};
+    if(hs.placed&&dist2(hs,me())<reach)return{label:`Влить в шланг: ${fmtL(S.water)} л`,fn(){pour(S.water,true);S.water=0;S.pourT=POUR_T}};
   }
   const w=waterReach();
   if(w&&!hotAt(w.x,w.z)&&S.water<toolCap()-1e-6)return{label:'Зачерпнуть воду',fn:scoopStart};
@@ -375,7 +383,7 @@ function dig(d){
   const bonus=20*(S.level+1);S.shilver+=bonus;S.finds++;gainXP(8);
   puff(d.x,.4,d.z,6);removeDig(d);
   if(d.axe){S.axe=true;toast(hotAdd('axe',false,true)?'Находка: топор! Он на панели снизу':'Находка: топор! Поставь его на панель в инвентаре')}
-  else if(d.holy&&gain('holy')){hotAdd('holy');toast(`Находка: святая вода и ${bonus} shilver`)}else toast(`Находка: ${bonus} shilver`);
+  else if(d.holy&&gain('holy')){hotAdd('holy');toast(`Находка: святая вода и ${bonus} высеребра`)}else toast(`Находка: ${bonus} высеребра`);
   blip(880,.2);
 }
 
@@ -462,16 +470,16 @@ function slide(ox,oz,nx,nz){
   }
   for(const c of solids){const dx=x-c.x,dz=z-c.z,d=Math.hypot(dx,dz);if(d<c.r&&d>0){x=c.x+dx/d*c.r;z=c.z+dz/d*c.r}}
   /* в щель не упасть: ходим только по её краю */
-  {const u=x-MOUTH.x,v=z-MOUTH.z,k=Math.hypot(u/3.9,v/2.4);if(k<1&&k>0){x=MOUTH.x+u/k;z=MOUTH.z+v/k}}
+  {const u=x-MOUTH.x,v=z-MOUTH.z,k=Math.hypot(u/(CRACK_A*crackK+.7),v/(CRACK_B*crackK+.9));if(k<1&&k>0){x=MOUTH.x+u/k;z=MOUTH.z+v/k}}
   return{x,z};
 }
 function updatePlayer(dt){
   S.moving=false;if(S.ui)return;
-  const useMul=S.buff>0?.8:1,ix=(keys.KeyD?1:0)-(keys.KeyA?1:0),iz=(keys.KeyS?1:0)-(keys.KeyW?1:0),moving=!!(ix||iz);
+  const hold=S.scoopT>0,useMul=S.buff>0?.8:1,ix=hold?0:(keys.KeyD?1:0)-(keys.KeyA?1:0),iz=hold?0:(keys.KeyS?1:0)-(keys.KeyW?1:0),moving=!!(ix||iz);
   S.moving=moving;
   if(S.onBoat){
     /* W и S ход, A и D руль: руль слушается только на ходу */
-    const b=S.boat,max=(11+S.up.boat.speed*1.8)*(S.stam>0?1:.5),thr=(keys.KeyW?1:0)-(keys.KeyS?1:0),rud=(keys.KeyA?1:0)-(keys.KeyD?1:0);
+    const b=S.boat,max=(11+S.up.boat.speed*1.8)*(S.stam>0?1:.5),thr=hold?0:(keys.KeyW?1:0)-(keys.KeyS?1:0),rud=hold?0:(keys.KeyA?1:0)-(keys.KeyD?1:0);
     b.v+=thr*(thr<0?5:8)*dt;b.v*=Math.pow(.42,dt);b.v=clamp(b.v,-max*.4,max);
     S.rudder=lerp(S.rudder||0,rud,Math.min(1,dt*5));
     b.h+=S.rudder*1.25*dt*(.28+Math.min(1,Math.abs(b.v)/5))*(b.v<-.2?-1:1);
@@ -514,7 +522,8 @@ function updatePlayer(dt){
 function updateScoop(dt){
   S.chopT=Math.max(0,S.chopT-dt);
   S.pourT=Math.max(0,(S.pourT||0)-dt);
-  if(S.scoopT>0){S.scoopT-=dt;if(S.scoopT<=0){S.scoopT=0;S.water=toolCap();blip(300,.08,'sine',.05);const w=waterReach();if(w&&!S.onBoat)splash(w.x,w.z,4)}}
+  if(S.scoopT>0){S.scoopT-=dt;const w=S.scoopSpot;if(w&&!S.scoopWet&&S.scoopT<toolScoop()*.62){S.scoopWet=true;if(!S.onBoat)splash(w.x,w.z,2)}
+    if(S.scoopT<=0){S.scoopT=0;S.water=toolCap();blip(300,.08,'sine',.05)}}
 }
 function updateNeeds(dt){
   S.sat=Math.max(0,S.sat-CFG.satDecay*Math.pow(.88,S.sk.gut)*dt);S.buff=Math.max(0,S.buff-dt);S.bubbleT=Math.max(0,S.bubbleT-dt);

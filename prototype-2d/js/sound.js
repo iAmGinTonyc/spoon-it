@@ -22,8 +22,8 @@ function blip(f,dur=.16,type='sine',vol=.07){
   if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;
   g.gain.setValueAtTime(vol,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
   o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+dur)}
-/* слиток shilver: коричневый, с радужным бликом */
-const INGOT=`<svg class="ingot" viewBox="0 0 34 22" aria-hidden="true"><defs><linearGradient id="shine" x1="0" x2="1"><stop offset="0" stop-color="#ff7e7e"/><stop offset=".33" stop-color="#ffe27a"/><stop offset=".66" stop-color="#7fe0a0"/><stop offset="1" stop-color="#7fb6ff"/></linearGradient></defs><polygon points="7,3 27,3 33,20 1,20" fill="#6b4226" stroke="#2a180c" stroke-width="1.4" stroke-linejoin="round"/><polygon points="7,3 27,3 24,9 10,9" fill="#8f5e36"/><polygon points="1,20 10,9 24,9 33,20" fill="#744a2a"/><path d="M11 6h11" stroke="url(#shine)" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+/* слиток высеребра: коричневый, с радужным бликом */
+const INGOT=`<img class="ingot" src="${INGOT_ICON}" alt="">`;
 const floats=[];
 function showGain(n){
   const el=document.createElement('div');el.className='float';el.innerHTML=`+${n} ${INGOT}`;$('floats').append(el);

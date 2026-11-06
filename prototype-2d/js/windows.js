@@ -10,32 +10,31 @@ function closeUI(){S.ui=null;$('menu').hidden=true;$('inv').hidden=true;$('map')
 function toggleUI(kind){if(S.mode!=='play')return;if(S.ui===kind)closeUI();else openUI(kind)}
 
 const pipsHtml=(n,max)=>max>1?`<div class="pips">${Array.from({length:max},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')}</div>`:'';
-function skillCost(it){return Math.ceil(it.c0*Math.pow(1.4,S.sk[it.id]))}
 function renderTree(){
   const box=$('menuBox');box.innerHTML='';
-  box.insertAdjacentHTML('beforeend',`<div class="head"><h2>Древо навыков</h2><small>Навыки покупаются за опыт. У тебя: ${Math.floor(S.xp)}</small></div>`);
+  box.insertAdjacentHTML('beforeend',`<div class="head"><h2>Древо навыков</h2><small>Уровень ${S.heroLv}. Очков навыков: ${S.pts}</small></div>`);
   const tree=document.createElement('div');tree.className='tree';box.append(tree);
   for(const g of SKILLS){
     const col=document.createElement('div');tree.append(col);
     col.insertAdjacentHTML('beforeend',`<div class="root">${g.group}<small>${g.note}</small></div>`);
     for(const it of g.items){
-      const n=S.sk[it.id],done=n>=it.max,price=skillCost(it),lockedBy=it.req&&!S.sk[it.req]?g.items.find(x=>x.id===it.req):null;
+      const n=S.sk[it.id],done=n>=it.max,lockedBy=it.req&&!S.sk[it.req]?g.items.find(x=>x.id===it.req):null;
       const b=document.createElement('button');b.className='skill'+(done?' done':'');
-      b.disabled=done||!!lockedBy||S.xp<price;
-      b.innerHTML=`${it.name}<small>${it.text}</small>${pipsHtml(n,it.max)}<span class="price">${done?'Изучено':lockedBy?`Сначала: ${lockedBy.name}`:price+' опыта'}</span>`;
-      b.onclick=()=>{S.xp-=price;S.sk[it.id]++;blip(640,.1);renderTree()};col.append(b);
+      b.disabled=done||!!lockedBy||S.pts<1;
+      b.innerHTML=`${it.name}<small>${it.text}</small>${pipsHtml(n,it.max)}<span class="price">${done?'Изучено':lockedBy?`Сначала: ${lockedBy.name}`:'1 очко'}</span>`;
+      b.onclick=()=>{S.pts--;S.sk[it.id]++;blip(640,.1);renderTree()};col.append(b);
     }
   }
   const close=document.createElement('button');close.className='closeBtn';close.textContent='Закрыть (T)';close.onclick=closeUI;box.append(close);
 }
 function renderBench(){
   const box=$('menuBox');box.innerHTML='';
-  box.insertAdjacentHTML('beforeend',`<div class="head"><h2>Верстак</h2><small>Тара и лодка прокачиваются за shilver. У тебя: ${S.shilver}</small></div>`);
+  box.insertAdjacentHTML('beforeend',`<div class="head"><h2>Верстак</h2><small>Тара и лодка прокачиваются за высеребро. У тебя: ${S.shilver}</small></div>`);
   const tree=document.createElement('div');tree.className='tree';box.append(tree);
   const node=(col,title,sub,n,max,price,buy)=>{
     const done=n>=max,b=document.createElement('button');
     b.className='skill'+(done?' done':'');b.disabled=done||S.shilver<price;
-    b.innerHTML=`${title}<small>${sub}</small>${pipsHtml(n,max)}<span class="price">${done?'Готово':price+' shilver'}</span>`;
+    b.innerHTML=`${title}<small>${sub}</small>${pipsHtml(n,max)}<span class="price">${done?'Готово':price+' высеребра'}</span>`;
     b.onclick=()=>{S.shilver-=price;buy();blip(640,.1);renderBench()};col.append(b);
   };
   box.insertAdjacentHTML('beforeend',`<div class="head"><small>Дров: ${S.wood}. Монстр даёт чертёж, а тару ты делаешь здесь.</small></div>`);
@@ -49,7 +48,7 @@ function renderBench(){
       const[sh,w]=T.craft;
       col.insertAdjacentHTML('beforeend',`<div class="root">${T.name}<small>Чертёж есть, вместимость ${fmtL(T.cap)} л</small></div>`);
       const b=document.createElement('button');b.className='skill';b.disabled=S.shilver<sh||S.wood<w;
-      b.innerHTML=`Сделать<small>Нужно дров: ${w}</small><span class="price">${sh} shilver</span>`;
+      b.innerHTML=`Сделать<small>Нужно дров: ${w}</small><span class="price">${sh} высеребра</span>`;
       b.onclick=()=>{craft(t);renderBench()};col.append(b);
       continue;
     }
@@ -68,15 +67,14 @@ function renderBench(){
   else{
     hc.insertAdjacentHTML('beforeend','<div class="root">Шланг<small>Чертёж есть, занимает 3 клетки</small></div>');
     const b=document.createElement('button');b.className='skill';b.disabled=S.shilver<CFG.hoseCost||S.wood<CFG.hoseCraftWood;
-    b.innerHTML=`Сделать<small>Нужно дров: ${CFG.hoseCraftWood}</small><span class="price">${CFG.hoseCost} shilver</span>`;
+    b.innerHTML=`Сделать<small>Нужно дров: ${CFG.hoseCraftWood}</small><span class="price">${CFG.hoseCost} высеребра</span>`;
     b.onclick=()=>{craftHose();renderBench()};hc.append(b);
   }
   const tr=document.createElement('div');tree.append(tr);
   tr.insertAdjacentHTML('beforeend','<div class="root">Транспорт<small>Быстрее по острову</small></div>');
   const make=(title,sub,done,[sh,w],fn)=>{const b=document.createElement('button');b.className='skill'+(done?' done':'');b.disabled=done||S.shilver<sh||S.wood<w;
-    b.innerHTML=`${title}<small>${sub}</small><span class="price">${done?'Готово':`${sh} shilver, дров: ${w}`}</span>`;b.onclick=()=>{fn();renderBench()};tr.append(b)};
+    b.innerHTML=`${title}<small>${sub}</small><span class="price">${done?'Готово':`${sh} высеребра, дров: ${w}`}</span>`;b.onclick=()=>{fn();renderBench()};tr.append(b)};
   make('Ролики',`Быстрее на ${Math.round((CFG.skatesK-1)*100)}%, надеваются клавишей V`,S.skates.made,CFG.skatesCost,craftSkates);
-  make('Машина','Втрое быстрее бега, стоит там, где её оставили',S.car.made,CFG.carCost,craftCar);
   const ax=document.createElement('div');tree.append(ax);
   if(!S.axe)ax.insertAdjacentHTML('beforeend','<div class="root locked">Топор<small>Лежит в находке на Отмели: плыви туда на лодке</small></div>');
   else{
@@ -126,7 +124,7 @@ function renderInv(){
   for(const it of S.inv){
     const el=document.createElement('div');el.className='gitem';el.dataset.id=it.id;gridPlace(el,it.x,it.y,it.w,it.h);
     const inf=itemInfo(it.id),at=S.hot.indexOf(it.id);
-    el.innerHTML=`<b>${inf.name}</b><span>${it.id==='wood'?`${woodIn(it)} / ${CFG.woodStack}`:inf.short}</span>${at>=0?`<i>${at+1}</i>`:''}`;
+    const ic=itemIcon(it.id);el.innerHTML=`${ic?`<img src="${ic}" alt="">`:''}<b>${inf.name}</b><span>${it.id==='wood'?`${woodIn(it)} / ${CFG.woodStack}`:inf.short}</span>${at>=0?`<i>${at+1}</i>`:''}`;
     el.onpointerdown=e=>{e.preventDefault();try{el.setPointerCapture(e.pointerId)}catch(_){}
       drag={it,el,ghost,w:it.w,h:it.h,r:wrap.getBoundingClientRect(),sx:e.clientX,sy:e.clientY,moved:false,ok:false};el.classList.add('drag')};
     el.onpointermove=e=>{if(!drag||drag.el!==el)return;
@@ -138,7 +136,7 @@ function renderInv(){
   }
   title('Запасы');
   const st=grid();
-  tile(st,{name:'Shilver',value:S.shilver});
+  tile(st,{name:'Высеребро',value:S.shilver});
   tile(st,{name:'Находки',value:S.finds});
   tile(st,{name:'Тайник на базе',value:S.stash.base});
   tile(st,{name:'Тайник в лодке',value:S.stash.boat});

@@ -3,6 +3,8 @@
 let time=0;
 const canvas=document.getElementById('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:false});
+/* пешком всё, что южнее на земле, рисуется поверх. На лодке камера крутится, там порядок идёт от глубины */
+renderer.setTransparentSort((a,b)=>a.groupOrder-b.groupOrder||a.renderOrder-b.renderOrder||(S.onBoat?b.z-a.z:a.object.position.z-b.object.position.z)||a.id-b.id);
 let pixelK=Math.min(devicePixelRatio,1.5);
 renderer.setPixelRatio(pixelK);renderer.setSize(innerWidth,innerHeight,false);
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x05040a);
@@ -60,7 +62,7 @@ float cracks(vec2 p){vec2 i=floor(p),f=fract(p);float d1=8.,d2=8.;
 float waves(vec2 p,float t){vec2 c=p;c.x+=floor(c.y)*.5;vec2 i=floor(c),f=fract(c)-vec2(.5,.62);float r=hs(i+3.);
   float d=abs(length(f*vec2(1.,1.5))-.34);float gate=step(f.y,.0)*step(.45,r);float blink=smoothstep(.1,.7,sin(t*.8+r*40.));
   return smoothstep(.05,.0,d)*gate*blink;}
-const vec3 PS0=vec3(.97,.84,.56),PS1=vec3(.93,.72,.44),PS2=vec3(.86,.55,.36),PS3=vec3(.76,.46,.46),PS4=vec3(.60,.41,.56),PS5=vec3(.38,.45,.56),PS6=vec3(.28,.32,.52),PS7=vec3(.22,.21,.38);
+const vec3 PS0=vec3(.46,.40,.34),PS1=vec3(.42,.34,.30),PS2=vec3(.39,.30,.29),PS3=vec3(.36,.27,.31),PS4=vec3(.32,.25,.34),PS5=vec3(.26,.25,.34),PS6=vec3(.20,.21,.31),PS7=vec3(.15,.14,.24);
 vec3 pal(float i){if(i<.5)return PS0;if(i<1.5)return PS1;if(i<2.5)return PS2;if(i<3.5)return PS3;if(i<4.5)return PS4;if(i<5.5)return PS5;if(i<6.5)return PS6;return PS7;}
 void main(){
   vec2 warp=vec2(vn(vW*.23+3.),vn(vW*.23+9.))-.5,w=vW+warp*.9,px=vec2(1.)/uWorld;
@@ -76,8 +78,13 @@ void main(){
   /* полки дна: каждый слой своего цвета, высохшая корка трескается */
   float lv=max(0.,-h/uDrop),idx=floor(lv+.72);
   vec3 land=pal(idx);
-  land*=1.+(fbm(vec2(w.x*.13+w.y*.28,w.y*.8-w.x*.1))-.5)*.34;
-  land=mix(land,land*vec3(1.06,.95,.86),vn(w*.05));
+  land*=1.+(fbm(vec2(w.x*.13+w.y*.28,w.y*.8-w.x*.1))-.5)*.5;
+  land=mix(land,land*vec3(.92,.86,.94),vn(w*.05));
+  /* мелкая грязь, камешки и пепельные пятна */
+  land*=1.+(fbm(w*1.3)-.5)*.3;
+  land*=1.+(fbm(w*5.1)-.5)*.22;
+  land=mix(land,land*vec3(1.14,1.12,1.18),smoothstep(.4,.8,fbm(w*.17+21.))*.5);
+  {vec2 q=w*vec2(1.5,2.1),ci=floor(q);vec2 o=fract(q)-.5-(h2(ci)-.5)*.5;float z=hs(ci+9.)*.09+.07,on=step(.9,hs(ci+5.));land*=1.-on*.4*smoothstep(z,z*.6,length(o-vec2(.02,.05)));land=mix(land,land*1.3,on*smoothstep(z,z*.6,length(o)));}
   if(h<0.){float c=cracks(w*.26+warp*.5);land*=mix(1.,mix(.62,1.,smoothstep(.0,.07,c)),dry*.8);}
   /* обрывы: пласты породы и потёки от ушедшей воды */
   float bands=sin(Y*3.1+fbm(vec2(w.x*.09,Y*.7))*5.),streak=vn(vec2(w.x*1.3+w.y*1.3,Y*.16));
@@ -86,28 +93,30 @@ void main(){
   land=mix(land,wall,steep);
 
   float rk=bio.g+(g-.5)*.45;
-  land=mix(land,mix(vec3(.66,.63,.62),vec3(.50,.50,.58),vn(w*.2))*(1.+(fbm(w*.8)-.5)*.3),smoothstep(.46,.52,rk));
+  land=mix(land,mix(vec3(.34,.32,.34),vec3(.25,.24,.31),vn(w*.2))*(1.+(fbm(w*.8)-.5)*.5),smoothstep(.46,.52,rk));
   float gr=bio.r+(g-.5)*.42;
-  vec3 grass=mix(vec3(.50,.76,.30),vec3(.20,.56,.36),vn(w*.13));
-  grass=mix(grass,vec3(.78,.84,.32),smoothstep(.62,.8,fbm(w*.09+5.))*.6);
-  grass*=1.+(fbm(vec2(w.x*.9+w.y*.5,w.y*1.6-w.x*.4))-.5)*.5;
-  land=mix(land,vec3(.21,.40,.33),smoothstep(.40,.46,gr)*(1.-steep));
+  vec3 grass=mix(vec3(.24,.29,.17),vec3(.14,.23,.18),vn(w*.13));
+  grass=mix(grass,vec3(.36,.33,.19),smoothstep(.56,.76,fbm(w*.09+5.))*.7);
+  grass*=1.+(fbm(vec2(w.x*.9+w.y*.5,w.y*1.6-w.x*.4))-.5)*.55;
+  grass*=mix(.76,1.14,fbm(w*1.6+4.));
+  grass*=1.+(vn(vec2(w.x*5.2,w.y*1.3))-.5)*.3;
+  land=mix(land,vec3(.17,.19,.16),smoothstep(.40,.46,gr)*(1.-steep));
   land=mix(land,grass,smoothstep(.47,.52,gr)*(1.-steep*.8));
-  land=mix(land,mix(vec3(.16,.14,.22),vec3(.28,.24,.36),g),smoothstep(.46,.52,bio.b+(g-.5)*.4));
+  land=mix(land,mix(vec3(.11,.10,.15),vec3(.21,.18,.27),g),smoothstep(.46,.52,bio.b+(g-.5)*.4));
   land*=mix(1.,.66,smoothstep(.24,.0,h-uSea));
 
   /* солнце слева, тени от обрывов */
   float lit=clamp(dot(n,uSun)*1.15,0.,1.),sh=0.;
   for(int i=1;i<=3;i++){float q=float(i)*2.6;vec2 p2=w+normalize(uSun.xz)*q;float yq=T(texture2D(uH,p2/uWorld+.5).r);sh=max(sh,smoothstep(.2,1.6,yq-(Y+q*.72)));}
-  vec3 tone=mix(vec3(.50,.52,.86),vec3(1.08,1.01,.90),lit*(1.-sh*.82));
+  vec3 tone=mix(vec3(.52,.50,.74),vec3(1.06,.98,.90),lit*(1.-sh*.82));
   land*=mix(vec3(1.),tone,uShadeK);
   /* низины тонут в синеватой дымке, а верх остаётся ярким */
-  land=mix(land,vec3(.42,.56,.78),smoothstep(3.,36.,uCamY-Y)*.5);
+  land=mix(land,vec3(.17,.20,.31),smoothstep(3.,36.,uCamY-Y)*.5);
   land*=mix(1.,.8,clamp(-Y/34.,0.,1.));
 
   /* вода */
   float dp=max(d,0.),k=1.-exp(-dp*3.6);
-  vec3 wc=mix(vec3(.38,.88,.78),vec3(.09,.56,.66),smoothstep(0.,.55,k));
+  vec3 wc=mix(vec3(.24,.46,.44),vec3(.08,.36,.44),smoothstep(0.,.55,k));
   wc=mix(wc,vec3(.05,.26,.47),smoothstep(.5,1.,k));
   float nn=fbm(w*.03+vec2(uT*.02,uT*.012));
   wc+=(nn-.5)*.12;
@@ -117,7 +126,7 @@ void main(){
   wc+=waves(w*vec2(.19,.3)+vec2(-uT*.05,3.),uT+9.)*.2*(.25+k);
   float foamB=sin(dp*22.-uT*1.5+fbm(w*.3)*5.);
   float foam=smoothstep(.0,.03,dp)*smoothstep(.34,.02,dp)*smoothstep(.2,.8,foamB);
-  wc=mix(wc,vec3(.97,.99,.95),foam*.8);
+  wc=mix(wc,vec3(.62,.68,.66),foam*.7);
   wc=mix(wc,vec3(.5,.07,.08),uBlood*(.6+.4*nn));
   if(uHot>0.){float r=length(w),rr=smoothstep(uHotR,uHotR-16.,r);
     float boil=fbm(w*.1+vec2(uT*.13,-uT*.2)),ring=sin(r*.9-uT*1.6+boil*5.);
@@ -127,7 +136,7 @@ void main(){
     wc+=rr*step(.72,hs(bi+1.))*smoothstep(.2,.15,bd)*smoothstep(.06,.12,bd)*vec3(.5,.4,.3);
     wc=mix(wc,vec3(1.,.92,.84),rr*.5*smoothstep(.5,.72,fbm(w*.045+vec2(uT*.05,uT*.03))));}
   wc=mix(land*vec3(.72,.92,.96),wc,smoothstep(0.,.3,dp)*.92+.08);
-  wc=mix(wc,vec3(.98,1.,.97),smoothstep(.0,.025,dp)*smoothstep(.09,.03,dp));
+  wc=mix(wc,vec3(.42,.46,.44),smoothstep(.0,.025,dp)*smoothstep(.09,.03,dp));
 
   vec3 col=mix(land,wc,smoothstep(-.01,.012,d));
   col*=1.-.12*smoothstep(.52,.74,fbm(vW*.011+vec2(uT*.012,uT*.007)));
@@ -181,7 +190,7 @@ void main(){vUv=uv;vec3 q=position;q.x-=q.z*uShear;vec4 w=modelMatrix*vec4(q,1.)
   float d=length(w.xz-uCamT)/uFogD;vFog=1.-exp(-d*d);}`;
 const SPRITE_F=`precision highp float;varying vec2 vUv,vW;varying float vFog;uniform sampler2D map;uniform float uOp,uGlow,uFlash,uClip,uDark,uShadeK;uniform vec3 uFogC;${LIGHT_GLSL}
 void main(){if(vUv.y<uClip)discard;vec4 t=texture2D(map,vUv);if(t.a<.02)discard;
-  if(uDark>0.){gl_FragColor=vec4(.10,.08,.3,t.a*uDark*uShadeK*uOp*(1.-vFog));return;}
+  if(uDark>0.){gl_FragColor=vec4(.04,.03,.07,t.a*uDark*uShadeK*uOp*(1.-vFog));return;}
   vec3 l=lightAt(vW),c=t.rgb*mix(l,vec3(1.),uGlow);c=mix(c,vec3(1.,.96,.9),uFlash);c=mix(c,uFogC,vFog*(1.-uGlow*.5));
   gl_FragColor=vec4(c,t.a*uOp);}`;
 function makeMat(tex,isFlat,o={}){
@@ -198,19 +207,20 @@ const sharedMat=(a,isFlat)=>{const m=isFlat?matF:matS;if(!m.has(a)){const q=make
 function spr(a,x,z,scale=1,flip=false,mat,y){const m=new THREE.Mesh(spriteGeo,mat||sharedMat(a,false));m.position.set(x,y??Yat(x,z),z);m.scale.set(a.w*scale*(flip?-1:1),a.h*scale,1);parentG.add(m);return m}
 function flat(a,x,z,sw,sd,dy=.05,mat,order=-10,y){const m=new THREE.Mesh(flatGeo,mat||sharedMat(a,true));m.position.set(x,(y??Yat(x,z))+dy,z);m.scale.set(sw,1,sd);m.renderOrder=order;parentG.add(m);return m}
 
-const A={tree:[artTree(1,TREE_PAL[0]),artTree(2,TREE_PAL[1]),artTree(3,TREE_PAL[3]),artTree(4,TREE_PAL[2])],palm:[artPalm(4),artPalm(5)],bush:artBush(true),bushBare:artBush(false),stump:artStump(),
-  rock:[artRock(2.6,false,true),artRock(4.2,false,false),artRock(3.2,false,true)],black:[artRock(3.4,true),artRock(5,true)],col:artColumn(false),colB:artColumn(true),ribL:artRib(false),ribR:artRib(true),
-  wreck:artWreck(),cave:artCave(),tuft:artTuft(),flower:[artFlower('#ff7a5a'),artFlower('#ffd24a'),artFlower('#c86af0'),artFlower('#ffffff')],fern:artFern(),mush:artMush(),glow:artMush('#3ad8b0',true),
-  shell:artShell(),star:artStar(),coral:artCoral(),kelp:artKelp(),drift:artDrift(),anchor:artAnchor(),bottle:artBottle(),boot:artBoot(),skull:artSkull(),fishbone:artFishBone(),amphora:artAmphora(),spike:artSpike(),chain:artChain(),
-  fence:artFence(),sign:artSign(),barrel:artBarrel(),logs:artLogs(),well:artWell(),tent:artTent(),cart:artCart(),clothes:artClothes(),lamp:artLamp(),net:artNet(),scare:artScare(),hive:artHive(),
-  house:artHouse(),floor:artFloor(),wall:artBackWall(),bed:artBed(),table:artTable(),chest:artChest(false),chestO:artChest(true),bench:artBench(),pot:artPot(),
-  fire:[0,1,2].map(artFire),crate:artCrate(),treasure:artTreasure(),inlet:artInlet(),demon:[artDemon(true),artDemon(false)],
-  gull:[artGull(true),artGull(false)],fly:[artFly('#ffb04a'),artFly('#ff7ab0'),artFly('#8ad8ff')],
-  shadow:artShadow(),ring:artRing(),foam:artFoam(),dig:artDig(),pool:artPool(),path:artPath(),drop:artDrop(),bubble:artBubble(),puff:artPuff(),firefly:artFirefly(),crack:artCrack(),
-  slash:[artSlash('#ffe9b0'),artSlash('#ff8a4a')],slam:artSlam(),orb:[artOrb('#7affe0'),artOrb('#ff5a3a')],card:artCard(),ingot:artIngot(),heart:artHeart(),
-  torch:[0,1,2].map(artTorch),door:artDoor(false),doorO:artDoor(true),splat:[artSplat('#7a2a5a'),artSplat('#2a6a5a')],
-  en:{grub:[drawEnemyArt('grub',0),drawEnemyArt('grub',1)],spitter:[drawEnemyArt('spitter',0),drawEnemyArt('spitter',1)],hopper:[drawEnemyArt('hopper',0),drawEnemyArt('hopper',1)],brute:[drawEnemyArt('brute',0),drawEnemyArt('brute',1)]}};
-A.fishJ=art(1.6,.8,g=>{P(g,[[.1,.4],[.7,.14],[1.2,.4],[.7,.62]],'#9fd0e0');P(g,[[1.15,.4],[1.5,.16],[1.5,.64]],'#6fa0c0');El(g,.42,.36,.05,.05,INK,null)});
+const A={tree:[sheetArt('tree0',7.8),sheetArt('tree1',5.6),sheetArt('tree2',7.6),sheetArt('tree3',5.6)],palm:[sheetArt('palm0',7.6),sheetArt('palm1',6.8)],bush:sheetArt('bush',3.1),bushBare:sheetArt('bushBare',3.1),stump:sheetArt('stump',2.8),
+  rock:[sheetArt('rock0',2.8),sheetArt('rock2',3.9),sheetArt('rock1',3.3)],black:[sheetArt('black0',3.5),sheetArt('black1',4.6)],
+  cave:sheetArt('dDoorO',7.2),tuft:sheetArt('tuft',1.5),flower:['flower0','flower1','flower2','flower3'].map(n=>sheetArt(n,1.3)),fern:sheetArt('fern',2),mush:sheetArt('mush',1.2),glow:sheetArt('glow',1.5),
+  
+  fence:sheetArt('fence',3.6),sign:sheetArt('sign',2),barrel:sheetArt('barrel',1.8),logs:sheetArt('logs',3.4),well:sheetArt('well',3.6),tent:sheetArt('tent',5),cart:sheetArt('cart',4.2),clothes:sheetArt('clothes',5),lamp:sheetArt('lamp',1.9),net:sheetArt('net',3.4),scare:sheetArt('scare',3.2),hive:sheetArt('hive',2.3),
+  house:sheetArt('house',12),floor:artFloor(),wall:artBackWall(),bed:sheetArt('bed',3.3),table:sheetArt('table',2.6),chest:sheetArt('chest',2.1),chestO:sheetArt('chestO',2.2),bench:sheetArt('bench',4.4),pot:sheetArt('pot2',2.6),
+  fire:[sheetArt('fire1',2.5),sheetArt('fire2',2.5),sheetArt('fire1',2.5)],crate:sheetArt('barrel',1.5),treasure:sheetArt('chest',2.6),
+  bird:{gull:[0,1,2,3,4,5,6,7].map(i=>sheetArt('bG'+i,1.5)),crow:[0,1,2,3,4,5,6,7].map(i=>sheetArt('bR'+i,1.5))},
+  shadow:artShadow(),ring:artRing(),foam:artFoam(),dig:artDig(),pool:artPool(),path:sheetArt('path',2.6),dropF:[0,1,2].map(artDropF),dropRing:artDropRing(),wet:artWet(),bubble:artBubble(),puff:artPuff(),crack:artCrack(),crackLip:artCrackLip(),
+  slash:[0,1,2,3,4,5,6].map(i=>sheetArt('dSlash'+i,5)),slam:artSlam(),rock2:[sheetArt('dRockG',2.5),sheetArt('dRockR',2.5)],paw:[sheetArt('dPawG',.8),sheetArt('dPawR',.8)],card:sheetArt('card',.95),ingot:sheetArt('ingot',1.2),heart:sheetArt('heart',.9),
+  torch:[0,1,2,1].map(i=>sheetArt('dTorch'+i,2.1)),door:sheetArt('dDoor',6.2),doorO:sheetArt('dDoorO',6.2),splat:[artSplat('#7a2a5a'),artSplat('#2a6a5a')],
+  en:{grub:[drawEnemyArt('grub',0),drawEnemyArt('grub',1)],spitter:[drawEnemyArt('spitter',0),drawEnemyArt('spitter',1)],hopper:[drawEnemyArt('hopper',0),drawEnemyArt('hopper',1)]}};
+A.drop=A.dropF[0];
+A.fishJ=sheetArt('herring',1.3);
 
 /* всё, что стоит на земле: видно, только когда это место вышло из воды */
 const objs=[],solids=[];
@@ -229,27 +239,35 @@ const hiddenLedge=(x,z)=>Yat(x,z+3.5)>Yat(x,z)+1.1;
 
 /* ---------- лагерь ---------- */
 const crackDecal=flat(A.crack,MOUTH.x,MOUTH.z,A.crack.w,A.crack.h,.08);
-const monArt=art(4,4,null,64),monMat=makeMat(monArt.tex,false,{depth:false}),monM=spr(monArt,MOUTH.x,MOUTH.z+1.55,1,false,monMat);
+const crackLip=spr(A.crackLip,MOUTH.x,MOUTH.z+1,1,false,makeMat(A.crackLip.tex,false,{depth:false}));
+const monArt=art(MON_M,MON_M,null,96),monMat=makeMat(monArt.tex,false,{depth:false}),monM=spr(monArt,MOUTH.x,MOUTH.z+1,1,false,monMat);
+/* нижняя часть овцы внутри щели: кадр спущен под землю и там обрезан */
+const MON_SINK=.03,monBodyH=st=>MF[st][0].by*MON_K,monGeos=[0,1,2,3].map(st=>new THREE.PlaneGeometry(1,1).translate(0,.5-MON_SINK*monBodyH(st)/MON_M,0));
+let crackK=0;
 let monKey='';
+const monBase=()=>1.2+S.level*.06;
+const monScale=()=>monBase()*(1+Math.sin((S.monPop||0)*9)*(S.monPop||0)*.28);
+const monHeight=()=>monBodyH(monStage())*monScale()*(1-MON_SINK)+.25;
+const crackTarget=()=>MF[monStage()][0].w*MON_K*monBase()*1.08/(2*CRACK_A);
 const HY=Yat(HOUSE.x,HOUSE.z);
 flat(A.floor,HOUSE.x,HOUSE.z,9.6,7.6,.08,undefined,-8,HY);
-put(A.wall,HOUSE.x,HOUSE.z-3.7,{shadow:false});
-flat(A.bed,HOUSE.x-3.3,HOUSE.z-1.6,2.3,3.6,.1,undefined,-7,HY);
+const wallMat=makeMat(A.wall.tex,false,{op:0});put(A.wall,HOUSE.x,HOUSE.z-3.7,{shadow:false}).m.material=wallMat;
+put(A.bed,HOUSE.x-3.2,HOUSE.z+.2,{shadow:false});
 put(A.table,HOUSE.x+3,HOUSE.z-2,{shadow:false});
 const chestE=put(A.chest,CHEST.x,CHEST.z+.3,{shadow:false});
 const chestOpenM=spr(A.chestO,CHEST.x,CHEST.z+.3);chestOpenM.visible=false;
 const roofMat=makeMat(A.house.tex,false);
 const roof=spr(A.house,HOUSE.x,HOUSE.z+3.9,1,false,roofMat);
 {const q=new THREE.Mesh(shadowGeo,regFlat(makeMat(A.house.tex,true,{dark:.4,shear:1.05})));q.position.set(HOUSE.x,HY+.07,HOUSE.z+4);q.scale.set(A.house.w,1,7);q.renderOrder=-9;worldG.add(q)}
-const houseDoor=spr(artHouseDoor(),HOUSE.x,HOUSE.z+3.95,1,false,undefined,HY);
+const houseDoor=spr(sheetArt('door',1.7),HOUSE.x+.45,HOUSE.z+3.95,1,false,undefined,HY);
 put(A.bench,BENCH.x,BENCH.z,{solid:1.7});
 put(A.pot,POT.x,POT.z,{solid:1.2});
 for(const[a,x,z,o]of[[A.fence,-13.6,-1.8,{}],[A.fence,-1.6,-2.3,{flip:true}],[A.fence,1.6,-3,{}],[A.sign,3,1.6,{}],[A.logs,-14.5,-4,{solid:1}],[A.barrel,-1.4,-4.2,{solid:.7}],[A.barrel,-.2,-3.5,{solid:.7,scale:.8}],
   [A.lamp,-4.6,2,{}],[A.lamp,6,2.6,{}],[A.lamp,12,1,{}],[A.clothes,-16,-9,{}],[A.well,7,-6,{solid:1.3,cast:true}],[A.hive,-17,-5.8,{}],[A.scare,-6,6,{}],[A.cart,4,8,{solid:1.3}],[A.net,10,18,{}],[A.tent,-9,15,{solid:1.6,cast:true}]])
   if(groundH(x,z)>.05)put(a,x,z,o);
 const pathStones=[];
-for(let i=0;i<9;i++){const t=i/8,x=lerp(-4,12,t),z=lerp(-.4,4.4,t)+Math.sin(i*1.3)*.5;pathStones.push({x,z,m:flat(A.path,x,z,1.5,1,.09)})}
-for(let i=0;i<7;i++){const t=i/6,x=lerp(-7,-2,t),z=lerp(-3,2+Math.sin(i),t);pathStones.push({x,z,m:flat(A.path,x,z,1.4,.95,.09)})}
+for(let i=0;i<9;i++){const t=i/8,x=lerp(-4,12,t),z=lerp(-.4,4.4,t)+Math.sin(i*1.3)*.5;pathStones.push({x,z,m:flat(A.path,x,z,2.2,1.5,.09)})}
+for(let i=0;i<7;i++){const t=i/6,x=lerp(-7,-2,t),z=lerp(-3,2+Math.sin(i),t);pathStones.push({x,z,m:flat(A.path,x,z,2.1,1.4,.09)})}
 
 /* костры */
 const fires=[];
@@ -289,22 +307,21 @@ const L=id=>LOCS.find(l=>l.id===id);
   const o=L('otmel');scatter(o,9,(x,z,i)=>i%2?addTree(x,z,true):put(A.rock[i%3],x,z,{solid:1.1,cast:true}));
   const f=L('les');scatter(f,34,(x,z,i)=>{if(i%4===3)addBush(x,z);else addTree(x,z,i%6===0)});
   const g=L('gryada');scatter(g,24,(x,z,i)=>{if(i%5===0)addBush(x,z);else if(i%3===0)addTree(x,z,false);else put(A.rock[i%3],x,z,{solid:1.2,cast:true})});
-  put(A.wreck,g.x+6,g.z+8,{solid:3,cast:true});
-  const h=L('hram');scatter(h,18,(x,z,i)=>put(i%3===2?A.colB:A.col,x,z,{solid:.9,cast:true}));scatter(h,6,(x,z,i)=>put(A.rock[i%3],x+5,z-4,{solid:1.2}));
-  const r=L('ryobra');for(let i=0;i<7;i++){const x=r.x-13+i*4.4,z=r.z-2+Math.sin(i)*1.4;put(A.ribL,x,z-1.8,{scale:1+i%2*.2,cast:true});put(A.ribR,x,z+1.8,{scale:1+i%2*.2,cast:true})}
+  const h=L('hram');scatter(h,18,(x,z,i)=>put(A.black[i%2],x,z,{solid:1.2,cast:true}));scatter(h,6,(x,z,i)=>put(A.rock[i%3],x+5,z-4,{solid:1.2}));
+  const r=L('ryobra');
   scatter(r,7,(x,z,i)=>put(A.rock[i%3],x,z+9,{solid:1.2}));
-  const k=L('rif');scatter(k,26,(x,z,i)=>i%3?put(A.black[i%2],x,z,{solid:1.5,cast:true}):put(A.spike,x,z,{solid:.8,cast:true}));scatter(k,8,(x,z)=>put(A.glow,x+4,z+3,{decor:true}));
+  const k=L('rif');scatter(k,26,(x,z,i)=>put(A.black[i%2],x,z,{solid:1.5,cast:true}));scatter(k,8,(x,z)=>put(A.glow,x+4,z+3,{decor:true}));
   const b=L('bereg');scatter(b,28,(x,z,i)=>{if(i%4===3)addBush(x,z);else addTree(x,z,i%2===0)});
 }
 /* мелочи: на траве, на песке и на дне каждого слоя свои */
-const SEABED=[[A.shell,A.star,A.kelp,A.drift,A.bottle,A.coral,A.rock[0]],[A.shell,A.star,A.coral,A.kelp,A.boot,A.anchor,A.chain],[A.amphora,A.coral,A.fishbone,A.chain,A.star,A.rock[2]],[A.amphora,A.fishbone,A.skull,A.chain,A.rock[1]],[A.skull,A.fishbone,A.spike,A.glow,A.black[0]]];
+const SEABED=[[A.rock[0],A.tuft],[A.rock[1],A.rock[2]],[A.rock[2],A.black[1]],[A.rock[1],A.black[0]],[A.glow,A.black[0]]];
 for(let i=0;i<5200;i++){
   const a=hash(i,41)*6.283,r=7+Math.sqrt(hash(i,43))*345,x=Math.cos(a)*r,z=Math.sin(a)*r,h=groundH(x,z);
   if(h<-12.6||Math.hypot(x-MOUTH.x,z-MOUTH.z)<7.5||Math.hypot(x-HOUSE.x,z-HOUSE.z-1)<8.5||nearCave(x,z,5))continue;
   if(!flatLand(x,z,1.6)||hiddenLedge(x,z))continue;
   const b=biomeAt(x,z),k=hash(i,47),flip=i%2===0;
   if(h>.25&&b[0]>.55){put(k<.5?A.tuft:k<.72?A.flower[i%4]:k<.86?A.fern:A.mush,x,z,{decor:true,flip,scale:.9+k*.5})}
-  else if(h>-.5){if(k<.5)put(k<.2?A.shell:k<.34?A.star:A.drift,x,z,{decor:true,flip})}
+  else if(h>-.5)continue;
   else if(k<.62){const lvl=Math.min(4,Math.floor(-h/CFG.drop/1.6)),set=SEABED[lvl],q=set[i%set.length];put(q,x,z,{decor:true,flip,scale:.85+k*.6})}
   else if(k<.68){const m=flat(A.pool,x,z,3+k,2+k,.07);const e={x,z,m,sy:1,k:0,h,isFlat:true};m.visible=false;objs.push(e)}
 }
@@ -360,9 +377,8 @@ function carveChasm(path,w){
 }
 
 /* ---------- живность ---------- */
-const gulls=Array.from({length:7},(_,i)=>({m:spr(A.gull[0],0,0,.8,false,makeMat(A.gull[0].tex,false),6),m2:spr(A.gull[1],0,0,.8,false,makeMat(A.gull[1].tex,false),6),a:i*.9,r:14+i*4,sp:.25+i*.03,y:6+i*.7,cx:i*9-20,cz:-i*7}));
-const flies=Array.from({length:12},(_,i)=>({m:spr(A.fly[i%3],0,0,.9),a:i,cx:(i*7)%24-14,cz:(i*5)%22-8}));
-const glows=Array.from({length:22},(_,i)=>({m:spr(A.firefly,0,0,1,false,makeMat(A.firefly.tex,false,{glow:1,add:true,op:0}),0),a:i*1.7,r:3+i*.9}));
+/* птицы: днём чайки, ночью вороны. В сумерках одни растворяются, другие проявляются */
+const birds=Array.from({length:4},(_,i)=>{const mat=makeMat(A.bird.gull[0].tex,false,{glow:.3});const m=spr(A.bird.gull[0],0,0,1,false,mat,6);m.renderOrder=30;return{mat,m,a:i*1.6,r:16+i*7,sp:.25+i*.04,y:6+i*.9,cx:i*15-20,cz:-i*10,ph:i*1.7}});
 
 /* ---------- герой ---------- */
 const HERO_PPM=150,heroCanvas=document.createElement('canvas');heroCanvas.width=HERO_W*HERO_PPM;heroCanvas.height=HERO_H*HERO_PPM;
@@ -374,7 +390,7 @@ const heroShadow=new THREE.Mesh(flatGeo,regFlat(makeMat(A.shadow.tex,true)));her
 const ripple=new THREE.Mesh(flatGeo,regFlat(makeMat(A.ring.tex,true,{op:.8})));ripple.renderOrder=-5;ripple.visible=false;scene.add(ripple);
 let heroKey='';
 function setHeroFrame(o){
-  const key=[o.view,o.runF,o.atkF,o.pose,o.item,o.water,o.dual,o.rollA,o.lamp,o.skates,o.wobble,heroImg.complete].join();
+  const key=[o.group,o.fi,o.tilt,o.view,o.pose,o.item,o.water,o.dual,o.rollA,o.lamp,o.skates,o.wobble,heroImg.complete].join();
   if(key===heroKey)return;heroKey=key;
   drawHero(heroG,o);heroArt.tex.needsUpdate=true;
 }
@@ -426,10 +442,15 @@ const wake=Array.from({length:30},()=>{const m=flat(A.foam,0,0,2,2,.06,regFlat(m
 let wakeI=0,wakeCD=0;
 
 /* ---------- демоны ---------- */
+/* ночные демоны: кадры из листа, у каждого свой холст на кадр не нужен, меняется только текстура */
+const demonImg=new Image();demonImg.src=DEMON_SHEET;
+const DK=.0225,DT={};
+function demonPart(r){const c=document.createElement('canvas');c.width=r.w;c.height=r.h;const tex=new THREE.CanvasTexture(c),draw=()=>{c.getContext('2d').drawImage(demonImg,r.x,r.y,r.w,r.h,0,0,r.w,r.h);tex.needsUpdate=true};if(demonImg.complete&&demonImg.naturalWidth)draw();else demonImg.addEventListener('load',draw);return{tex,w:r.w*DK,h:r.h*DK,c}}
+for(const k in DF)if(k!=='angel')DT[k]=DF[k].map(demonPart);
 const demons=[];
 for(let i=0;i<5;i++){
-  const m=spr(A.demon[0],0,0,.68,false,makeMat(A.demon[0].tex,false),0),m2=spr(A.demon[1],0,0,.68,false,makeMat(A.demon[1].tex,false),0),sh=flat(A.shadow,0,0,2.4,1,.05,undefined,-5,0);
-  m.visible=m2.visible=sh.visible=false;demons.push({m,m2,sh,a:i/5*6.28,r:4.6+i*1,sp:1.2+i*.2,fall:0});
+  const mat=makeMat(DT.hover[0].tex,false,{glow:.5}),m=spr(DT.hover[0],0,0,1,false,mat,0),sh=flat(A.shadow,0,0,2.4,1,.05,undefined,-5,0);
+  m.renderOrder=25;m.visible=sh.visible=false;demons.push({m,mat,sh,a:i/5*6.28,r:4.6+i*1,sp:1.2+i*.2,fall:0,cyc:i*1.3});
 }
 
 /* ---------- шланг ---------- */
@@ -439,7 +460,6 @@ function layHose(){
   if(hoseM){worldG.remove(hoseM);hoseM.geometry.dispose();hoseM=null}
   if(hoseInlet){worldG.remove(hoseInlet);hoseInlet=null}
   const h=S.hose;if(!h.placed)return;
-  hoseInlet=spr(A.inlet,h.x,h.z,1,false,undefined,Math.max(Yat(h.x,h.z),seaVis()));
   const dx=MOUTH.x-h.x,dz=MOUTH.z-h.z,len=Math.hypot(dx,dz)||1,nx=-dz/len*.16,nz=dx/len*.16,n=Math.ceil(len/1.2)+2,pos=[],idx=[],uv=[];
   for(let i=0;i<=n;i++){const t=i/n,w=Math.sin(t*9)*.5*Math.sin(t*3.14),x=h.x+dx*t+nx*w*6,z=h.z+dz*t+nz*w*6,y=Math.max(Yat(x,z),seaVis())+.14;
     pos.push(x+nx,y,z+nz,x-nx,y,z-nz);uv.push(0,t,1,t);if(i<n){const a=i*2;idx.push(a,a+1,a+2,a+1,a+3,a+2)}}
@@ -458,20 +478,47 @@ const treasChest=spr(A.treasure,0,0,1,false,undefined,0);treasChest.visible=fals
 let chestUp=0;
 
 /* ---------- частицы ---------- */
-const parts=Array.from({length:90},()=>{const m=new THREE.Mesh(spriteGeo,sharedMat(A.drop,false));m.visible=false;scene.add(m);return{m,mats:new Map(),life:0,vx:0,vy:0,vz:0,g:0,y:0}});
-function emit(a,x,y,z,vx,vy,vz,life,g=12,size=1,abs=false){
+const parts=Array.from({length:170},()=>{const m=new THREE.Mesh(spriteGeo,sharedMat(A.drop,false));m.visible=false;scene.add(m);return{m,mats:new Map(),life:0,vx:0,vy:0,vz:0,g:0,y:0}});
+function emit(a,x,y,z,vx,vy,vz,life,g=12,size=1,abs=false,wait=0){
   const p=parts.find(q=>q.life<=0);if(!p)return;
   const base=abs||S.inCave?0:Math.max(Yat(x,z),seaVis());
-  if(!p.mats.has(a))p.mats.set(a,makeMat(a.tex,false));
-  p.m.material=p.mats.get(a);p.m.scale.set(a.w*size,a.h*size,1);p.m.position.set(x,y+base,z);p.m.visible=true;
-  Object.assign(p,{life,life0:life,grow:g===0?1:0,vx,vy,vz,g,y:y+base,floor:base});
+  const drop=a===A.drop;if(!p.mats.has(a))p.mats.set(a,makeMat(a.tex,false,drop?{mask:true,glow:.35}:{}));
+  p.m.material=p.mats.get(a);p.m.scale.set(a.w*size,a.h*size,1);p.m.position.set(x,y+base,z);p.m.visible=!wait;
+  if(drop)p.m.material.uniforms.uOp.value=1;
+  Object.assign(p,{life,life0:life,grow:g===0?1:0,vx,vy,vz,g,y:y+base,floor:base,drop,size,wait,gen:0,ph:Math.random()*6});return p;
+}
+/* круги и мокрые пятна там, где упала капля */
+const rips=Array.from({length:44},()=>{const m=new THREE.Mesh(flatGeo,regFlat(makeMat(A.dropRing.tex,true,{op:0})));m.visible=false;m.renderOrder=-5;scene.add(m);return{m,t:0,life:1,r:0,wet:false}});
+let ripI=0;
+function dropRip(x,y,z,r,wet){const p=rips[ripI++%rips.length];p.t=p.life=wet?2.4:.5;p.r=r;p.wet=wet;p.m.material.uniforms.map.value=(wet?A.wet:A.dropRing).tex;p.m.position.set(x,y+.05,z);p.m.scale.set(wet?r:.1,1,wet?r:.1);p.m.visible=true}
+function dropLand(p){
+  const x=p.m.position.x,z=p.m.position.z,land=S.inCave||Yat(x,z)>seaVis()+.02,sz=p.size;
+  dropRip(x,p.floor,z,.3+sz*.42,false);if(land&&sz>.6)dropRip(x,p.floor,z,.26+sz*.34,true);
+  if(p.gen||sz<.55)return;
+  for(let i=0,n=1+Math.floor(Math.random()*3);i<n;i++){const a=Math.random()*6.28,s=.5+Math.random()*1.1,q=emit(A.drop,x,p.floor+.03,z,Math.cos(a)*s,1.6+Math.random()*1.6,Math.sin(a)*s*.7,.7,14,sz*.5,true);if(q){q.floor=p.floor;q.gen=1}}
 }
 const puff=(x,y,z,n=5)=>{for(let i=0;i<n;i++)emit(A.puff,x+(Math.random()-.5),y,z+(Math.random()-.5),(Math.random()-.5)*2,1.2+Math.random(),(Math.random()-.5)*2,.7,0,.9)};
-const splash=(x,z,n=6)=>{for(let i=0;i<n;i++){const a=Math.random()*6.28;emit(A.drop,x,.2,z,Math.cos(a)*2.4,3+Math.random()*3,Math.sin(a)*1.6,.7)}};
-function dropFrom(){emit(A.drop,S.x+S.fx*.5+(S.flip?-.4:.4),1.1+S.air,S.z+.1,(Math.random()-.5)*.8,.4,(Math.random()-.5)*.5,.55)}
-function updateParts(dt){for(const p of parts)if(p.life>0){p.life-=dt;if(p.life<=0){p.m.visible=false;continue}
-  p.vy-=p.g*dt;p.m.position.x+=p.vx*dt;p.y+=p.vy*dt;p.m.position.z+=p.vz*dt;p.m.position.y=p.y;if(p.g>0&&p.y<p.floor){p.life=0;p.m.visible=false}
-  if(p.grow){const q=p.life/p.life0;p.m.material.uniforms.uOp.value=Math.min(1,q*1.6)*.8;const k=1+dt*.3;p.m.scale.x*=k;p.m.scale.y*=k}}}
+const splash=(x,z,n=6)=>{dropRip(x,Math.max(Yat(x,z),seaVis()),z,1.1,false);for(let i=0;i<n*3;i++){const a=Math.random()*6.28,s=.7+Math.random()*2.3;emit(A.drop,x,.15,z,Math.cos(a)*s,2.4+Math.random()*3.8,Math.sin(a)*s*.66,1.3,12,.45+Math.random()*.6,false,i*.006)}};
+/* вода из ложки летит к щели каплями, а не появляется там сразу */
+function pourArc(){
+  const x0=S.x+S.fx*.5,z0=S.z+.1,y0=Yat(S.x,S.z)+1.2,my=Yat(MOUTH.x,MOUTH.z);
+  for(let i=0;i<18;i++){const tx=MOUTH.x+(Math.random()-.5)*CRACK_A*crackK,tz=MOUTH.z+CRACK_B*crackK*(.2+Math.random()*.6),t=.34+Math.random()*.14,
+    q=emit(A.drop,x0,y0,z0,(tx-x0)/t,(my-y0+6*t*t)/t,(tz-z0)/t,1.2,12,.5+Math.random()*.55,true,i*.016);if(q)q.floor=my}
+}
+function dropFrom(){emit(A.drop,S.x+S.fx*.5+(S.flip?-.4:.4),1.1+S.air,S.z+.1,(Math.random()-.5)*.8,.4,(Math.random()-.5)*.5,1,12,.55+Math.random()*.45)}
+function updateParts(dt){
+  for(const p of parts)if(p.life>0){
+    if(p.wait>0){p.wait-=dt;if(p.wait<=0)p.m.visible=true;continue}
+    p.life-=dt;if(p.life<=0){p.m.visible=false;continue}
+    p.vy-=p.g*dt;p.m.position.x+=p.vx*dt;p.y+=p.vy*dt;p.m.position.z+=p.vz*dt;p.m.position.y=p.y;
+    if(p.drop){const v=Math.abs(p.vy),f=p.vy<-6.5?2:p.vy<-2?1:0,s=p.size*A.drop.w,w=f?1:1+Math.sin(p.life*46+p.ph)*.1;
+      p.m.material.uniforms.map.value=A.dropF[f].tex;p.m.scale.set(s*w*(1-Math.min(.25,v*.02)),s/w*(1+Math.min(.5,v*.045)),1);p.m.material.uniforms.uOp.value=Math.min(1,p.life*7)}
+    if(p.g>0&&p.y<p.floor){p.life=0;p.m.visible=false;if(p.drop)dropLand(p)}
+    if(p.grow){const q=p.life/p.life0;p.m.material.uniforms.uOp.value=Math.min(1,q*1.6)*.8;const k=1+dt*.3;p.m.scale.x*=k;p.m.scale.y*=k}
+  }
+  for(const p of rips)if(p.t>0){p.t-=dt;const q=Math.max(0,p.t/p.life);if(p.t<=0){p.m.visible=false;continue}
+    if(p.wet)p.m.material.uniforms.uOp.value=.55*Math.min(1,q*2.4);else{const r=.1+(1-q*q)*p.r;p.m.scale.set(r,1,r);p.m.material.uniforms.uOp.value=q*.75}}
+}
 
 /* ---------- живописный фильтр кадра ---------- */
 const rtOpts={samples:4,depthBuffer:true};
@@ -545,6 +592,7 @@ function updateLights(n){
   addL(BASE.x,BASE.z+1,17,n*(S.thirsty?.2:.95)*flick,[1,.68,.38]);
   addL(HOUSE.x,HOUSE.z,8,n*.75,[1,.78,.5]);
   if(S.lanternOn){const p=me();addL(p.x,p.z,14,1.05*flick,[1,.8,.52])}
+  else if(n>.05){const p=me();addL(p.x,p.z,7,n*.42,[.62,.68,.92])}
   if(S.onBoat)addL(S.boat.x,S.boat.z,16,n*.9,[1,.82,.55]);
   for(const f of fires)addL(f.x,f.z,13,(.2+.95*n)*flick,[1,.6,.28]);
   for(const c of CAVES)addL(c.x,c.z+3,7,n*.6,[1,.66,.3]);
@@ -567,16 +615,40 @@ function updateObjs(dt){
 }
 function updateHero(dt,baseY){
   const b=S.boat,moved=S.moving&&!S.ui;
-  const runF=Math.floor(S.walkT*.8)%6,step=moved?Math.sin(S.walkT*.7):0;
+  const step=moved?Math.sin(S.walkT*.7):0;
   const hh=S.onBoat||S.inCave?null:held(),item=hh&&hh!=='skates'&&(!TOOLS[hh]||S.have[hh])?hh:null,hasW=hh==='lantern'?S.lanternOn:!!(TOOLS[hh]&&S.water>0);
   const pose=S.rollT>0?'roll':S.hurtT>0?'hurt':S.atkT>0?'atk':S.chargeT>.18?'charge':S.mode==='wake'?'idle':S.scoopT>0?'scoop':S.chopT>.35?'chop':S.pourT>0?'pour':'idle';
   const dual=!!(TOOLS[hh]&&S.up[hh]&&S.up[hh].dual);
   const fight=pose==='atk'||pose==='charge'||pose==='hurt';
-  const view=S.onBoat?'up':fight?'atk':(moved?'run':S.dir);
-  let atkF=0;
-  if(pose==='atk'){const p=1-S.atkT/(S.atkDur||.3),seq=[[1,2,3,5],[2,3,4,5],[0,2,3,4,5]][(C.combo||0)%3];atkF=seq[Math.min(seq.length-1,Math.floor(p*seq.length))]}
-  else if(pose==='charge')atkF=1;
-  setHeroFrame({view,runF:moved?runF:0,atkF,pose,item,water:hasW,dual,rollA:pose==='roll'?Math.round(time*14)%8*.785:0,lamp:S.lanternOn&&hh!=='lantern',skates:S.skates.on&&!S.onBoat,wobble:moved?Math.round(time*10):0});
+  /* какой ряд кадров показать: зависит от направления, скорости и того, что в лапе */
+  const spoon=S.inCave||(hh==='spoon'&&S.have.spoon),water=hh==='spoon'&&S.have.spoon&&S.water>0,d=S.dir;
+  /* на листах нет отдельных кадров удара и кувырка, они собраны из бега с ложкой */
+  let group,fi=0,tilt=0,view=d==='up'?'up':d==='down'?'down':'side',sideFrame=view==='side';
+  if(pose==='roll'){group=spoon?'spRunS':'walkS';fi=2;sideFrame=true;view='atk'}
+  else if(fight){group='spRunS';sideFrame=true;view='atk';
+    if(pose==='atk'){const p=1-S.atkT/(S.atkDur||.3),seq=[[7,1,3],[7,3,5],[0,1,3,5]][(C.combo||0)%3];fi=seq[Math.min(seq.length-1,Math.floor(p*seq.length))];tilt=p<.3?-.2:.22*(1-(p-.3)/.7)}
+    else if(pose==='charge'){fi=7;tilt=-.26}
+    else fi=7;}
+  else if(S.onBoat){group='idle';fi=1;view='up';sideFrame=false}
+  else if(!moved&&hh==='spoon'&&(pose==='scoop'||(pose==='pour'&&S.chopT<=0))){
+    const p=pose==='scoop'?1-S.scoopT/toolScoop():1-S.pourT/POUR_T;
+    group=(pose==='scoop'?'sc':'po')+(d==='up'?'U':d==='down'?'D':'S');fi=clamp(Math.floor(p*8),0,7);
+  }
+  else if(moved&&d!=='up'&&d!=='down'){
+    const fast=S.running;
+    group=water?(fast?'wRunS':'wWalkS'):spoon?(fast?'spRunS':'spWalkS'):fast?'runS':'walkS';
+    fi=Math.floor(S.walkT*.75);view='run';sideFrame=true;
+  }else if(moved){
+    const fast=S.running,D=d==='down',pre=water?'w':spoon?'sp':'';
+    /* нижний ряд листа обрезан, поэтому бег вверх с водой идёт кадрами ходьбы */
+    if(water&&!D)group='wWalkU';else group=(pre?pre+(fast?'Run':'Walk'):(fast?'run':'walk'))+(D?'D':'U');
+    fi=Math.floor(S.walkT*.75);
+  }
+  else if(d==='up'){group='idle';fi=1}
+  else if(d==='down'){group=water?'wIdle':spoon?'spIdle':'idle';fi=water?Math.floor(time*1.1)%2:0}
+  else{group=water?'wWalkS':spoon?'spIdle':'idle';fi=water?0:3}
+  const over=hh==='spoon'||S.inCave?null:item;
+  setHeroFrame({group,fi,tilt,view,pose,item:over,water:hasW,dual,rollA:pose==='roll'?Math.round(time*14)%8*.785:0,lamp:S.lanternOn&&hh!=='lantern',skates:S.skates.on&&!S.onBoat,wobble:moved?Math.round(time*10):0});
   const inCar=S.car.on&&!S.inCave;hero.visible=!inCar;
   if(S.onBoat){
     const q=boatG.localToWorld(boatLampPos.set(.55,1.05,-3));
@@ -586,7 +658,7 @@ function updateHero(dt,baseY){
   const cut=depth*1.3,up=WU.uUp.value;
   heroMat.uniforms.uClip.value=cut/HERO_H;
   hero.position.set(S.x-up.x*cut,baseY+S.air+bob-up.y*cut+.02,S.z+.02-up.z*cut);
-  const fl=S.flip&&(view==='run'||view==='atk'||view==='side')?-1:1;
+  const fl=S.flip&&sideFrame?-1:1;
   hero.scale.set(HERO_W*fl*(2-squash),HERO_H*squash,1);
   heroShadow.visible=true;heroShadow.position.set(S.x,baseY+.08,S.z+.05);const sh=1.9*(1-Math.min(.5,S.air*.2));heroShadow.scale.set(sh,1,sh*.42);
   ripple.visible=depth>.03;if(ripple.visible){ripple.position.set(S.x,baseY+.09,S.z+.02);const s=2+Math.sin(time*3)*.25;ripple.scale.set(s,1,s*.62)}
@@ -619,19 +691,23 @@ function updateScene(dt){
   for(const w of wrecks){w.m.visible=w.cd<=0;w.m.position.y=sv+.05;if(w.cd<=0&&Math.hypot(w.x-CAM.x,w.z-CAM.z)<100&&Math.random()<dt*2)emit(A.bubble,w.x+(Math.random()-.5)*3,.1,w.z+(Math.random()-.5)*3,0,1.4,0,1.2,0,.8)}
   for(const c of crates){c.m.visible=c.cd<=0;c.m.position.set(c.x,sv+Math.sin(time*1.5+c.x)*.12-.15,c.z)}
   houseDoor.visible=!S.doorOpen;
-  const inside=inHouse();roofMat.uniforms.uOp.value+=((inside?.08:1)-roofMat.uniforms.uOp.value)*Math.min(1,dt*7);
+  const inside=inHouse();roofMat.uniforms.uOp.value+=((inside?.08:1)-roofMat.uniforms.uOp.value)*Math.min(1,dt*7);wallMat.uniforms.uOp.value=(1-roofMat.uniforms.uOp.value)/.92;
   chestE.gone=S.chestOpen;if(S.chestOpen){chestE.m.visible=false;chestOpenM.visible=true}
   if(Math.random()<dt*2.2)emit(A.puff,HOUSE.x+3.4,9.2,HOUSE.z+3.9,.4,1.3,0,3,0,.9+Math.random()*.6);
 
   /* зверёк сидит в щели и растёт с уровнем */
-  const tier=S.level>=5?2:S.level>=3?1:0,blink=Math.sin(time*.7)>.985,open=S.thirsty||meterFull(),happy=S.bubbleT>.6;
-  const key=[tier,blink,open,happy].join();
-  if(key!==monKey){monKey=key;drawMonster(monArt.g,tier,blink,open,happy);monArt.tex.needsUpdate=true}
+  /* улыбка: туда и обратно по 4 кадрам ряда */
+  let smile=0;
+  if(S.smile!=null){S.smile+=dt;const t=S.smile;smile=t<.1?1:t<.2?2:t<.8?3:t<.9?2:t<1?1:0;if(t>=1)S.smile=null}
+  const st=monStage(),key=[st,smile,monImg.complete].join();
+  if(key!==monKey){monKey=key;drawSheep(monArt.g,st,smile);monArt.tex.needsUpdate=true}
   S.monPop=Math.max(0,(S.monPop||0)-dt*1.4);
-  const ms=(.62+S.level*.26)*(1+Math.sin(S.monPop*9)*S.monPop*.28),sq=1+Math.sin(time*1.6)*.025+(happy?Math.sin(time*11)*.03:0);
-  const my=Yat(MOUTH.x,MOUTH.z),up0=WU.uUp.value,cutM=.92*ms*sq;
-  monM.scale.set(4*ms*(2-sq),4*ms*sq,1);monMat.uniforms.uClip.value=.23;
-  monM.position.set(MOUTH.x-up0.x*cutM,my-up0.y*cutM+.1,MOUTH.z+1.55-up0.z*cutM);
+  const sq=1+Math.sin(time*1.6)*.02+(smile?.025:0),my=Yat(MOUTH.x,MOUTH.z);
+  const ms=monScale();
+  monM.scale.set(MON_M*ms*(2-sq),MON_M*ms*sq,1);
+  {const st=monStage(),tk=crackTarget(),nz=()=>MOUTH.z+CRACK_B*crackK;crackK=crackK?crackK+(tk-crackK)*Math.min(1,dt*1.4):tk;
+    monM.geometry=monGeos[st];monMat.uniforms.uClip.value=MON_SINK*monBodyH(st)/MON_M;monM.position.set(MOUTH.x,my+.1,nz());
+    crackDecal.scale.set(A.crack.w*crackK,1,A.crack.h*crackK);crackLip.position.set(MOUTH.x,my,nz()-.1);crackLip.scale.set(A.crackLip.w*crackK,A.crackLip.h*crackK,1)}
 
   /* кораблик качается на воде */
   const b=S.boat;
@@ -650,20 +726,27 @@ function updateScene(dt){
    for(const k in carSpr)carSpr[k].visible=c.made&&carSpr[k]===v;
    if(c.made){v.position.set(cx,on?S.y:Yat(cx,cz),cz);v.scale.x=Math.abs(v.scale.x)*(on&&S.dir==='side'&&S.flip?-1:1);carShadow.visible=true;carShadow.position.set(cx,(on?S.y:Yat(cx,cz))+.07,cz+.1)}else carShadow.visible=false}
 
-  /* чайки, бабочки, светлячки */
-  for(const g of gulls){g.a+=dt*g.sp;const x=CAM.x+g.cx+Math.cos(g.a)*g.r,z=CAM.z+g.cz+Math.sin(g.a)*g.r,y=Math.max(CAM.y,sv)+g.y+Math.sin(g.a*3);const up=Math.floor(time*6+g.r)%2===0;g.m.visible=up&&n<.6;g.m2.visible=!up&&n<.6;for(const q of[g.m,g.m2])q.position.set(x,y,z)}
-  const showFly=n<.5&&CAM.h<70&&!S.onBoat;
-  for(const f of flies){f.m.visible=showFly;if(!showFly)continue;f.a+=dt*1.7;const x=f.cx+Math.sin(f.a)*2+Math.sin(f.a*.37)*5,z=f.cz+Math.cos(f.a*1.3)*1.6;f.m.position.set(x,Yat(x,z)+1.1+Math.sin(f.a*3)*.4,z);const s=Math.sin(time*18+f.a)>0?1:.5;f.m.scale.x=.63*s}
-  for(const f of glows){const on=n>.35;f.m.visible=on;if(!on)continue;f.a+=dt*.5;const x=CAM.x+Math.cos(f.a*.7+f.r)*f.r*2.2,z=CAM.z+Math.sin(f.a+f.r)*f.r*1.3;f.m.position.set(x,Math.max(Yat(x,z),sv)+1+Math.sin(f.a*2)*.6,z);f.m.material.uniforms.uOp.value=.5+.5*Math.sin(time*2+f.r)}
+  /* птицы */
+  {const crow=n>=.5,f=A.bird[crow?'crow':'gull'],op=Math.min(1,Math.abs(n-.5)*8),a=f[0];
+    for(const g of birds){g.a+=dt*g.sp;const x=CAM.x+g.cx+Math.cos(g.a)*g.r,z=CAM.z+g.cz+Math.sin(g.a)*g.r,y=Math.max(CAM.y,sv)+g.y+Math.sin(g.a*3);
+      g.m.position.set(x,y,z);g.mat.uniforms.uOp.value=op;g.mat.uniforms.map.value=f[Math.floor(time*(crow?10:12)+g.ph)%8].tex;g.m.scale.set(a.w*(Math.sin(g.a)>0?-1:1),a.h,1)}}
 
   /* демоны падают с неба и кружат вокруг цели */
   const p=me(),attack=S.attacking,py=S.onBoat?sv+1:S.y;
   for(const d of demons){
     d.fall=attack?Math.min(1,d.fall+dt*.8):Math.max(0,d.fall-dt*1.4);
-    const on=d.fall>.01;d.sh.visible=on;if(!on){d.m.visible=d.m2.visible=false;continue}
+    const on=d.fall>.01;d.sh.visible=on;d.m.visible=on;if(!on)continue;
     d.a+=dt*d.sp;const x=p.x+Math.cos(d.a)*d.r,z=p.z+Math.sin(d.a)*d.r*.62,y=py+2.6+Math.sin(time*2.1+d.r)*.8+(1-d.fall)*(1-d.fall)*38;
-    const up=Math.floor(time*9+d.r)%2===0;d.m.visible=up;d.m2.visible=!up;
-    const f=Math.cos(d.a)<0?-1:1;for(const q of[d.m,d.m2]){q.position.set(x,y,z);q.scale.x=Math.abs(q.scale.x)*f}
+    /* что он делает: падает с неба, кружит и уносит вещи, тянет кровь, а святая вода рассыпает его */
+    let act='fly',fi=Math.floor(time*10+d.r),toHero=false;
+    if(attack){
+      if(d.fall<.85){act='dive';fi=Math.min(5,Math.floor(d.fall/.85*6))}
+      else if(S.bleeding){act='blood';fi=3+Math.floor(time*5+d.r)%3;toHero=true}
+      else{d.cyc+=dt;const c=d.cyc%7;if(c>=5.8){act='flee';fi=Math.floor((c-5.8)*5)}else if(c>=4.6){act='steal';fi=Math.floor((c-4.6)*5);toHero=true}}
+    }else if(S.blessedDay===S.day){act='repel';fi=Math.min(5,Math.floor((1-d.fall)*6));if(Math.random()<dt*5)emit(DT.ash[Math.floor(time*6)%4],x,y,z,(Math.random()-.5)*2,1,(Math.random()-.5)*2,.9,0,1,true)}
+    else{act='flee';fi=Math.floor(time*9+d.r)}
+    const l=DT[act],a=l[fi%l.length],dir=toHero?(Math.cos(d.a)>0?-1:1):(Math.sin(d.a)>0?-1:1);
+    d.mat.uniforms.map.value=a.tex;d.m.position.set(x,y-a.h/2,z);d.m.scale.set(a.w*dir,a.h,1);
     d.sh.position.set(x,py+.06,z);const s=2.6-Math.min(1.8,(y-py)*.1);d.sh.scale.set(s,1,s*.42);
   }
   if(AC&&snd.choir)snd.choir.gain.setTargetAtTime(attack?.05:0,AC.currentTime,.5);

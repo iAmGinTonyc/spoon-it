@@ -4,12 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Spoon It 2D — прототип</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700;800&family=Alegreya:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
 <script type="module">import * as THREE from 'three';window.THREE=THREE</script>
 <script defer src="js/data.js"></script>
 <script defer src="js/world.js"></script>
 <script defer src="js/hero-sheet.js"></script>
+<script defer src="js/monster-sheet.js"></script>
+<script defer src="js/item-sheet.js"></script>
+<script defer src="js/boss-sheet.js"></script>
+<script defer src="js/demon-sheet.js"></script>
 <script defer src="js/art.js"></script>
 <script defer src="js/sound.js"></script>
 <script defer src="js/scene.js"></script>
@@ -26,25 +33,32 @@
 <div id="vignette"></div><div id="grain"></div><div id="bloodfx"></div><div id="fade"></div>
 
 <div id="hud">
-  <div id="mon" class="panel"><span id="monName"></span> <span id="monNum"></span><div class="bar"><i id="monBar"></i><b id="debtBar"></b></div></div>
   <div id="left" class="panel">
+    <img class="face" data-hero alt="">
     <div id="clock"></div>
-    <div class="stat">Сытость<div class="bar"><i id="satBar" style="background:var(--good)"></i><s style="left:25%"></s><s style="left:50%"></s></div></div>
-    <div class="stat">Выносливость<div class="bar"><i id="stamBar" style="background:#d8c27a"></i></div></div>
-    <div class="stat">Фонарь<div class="bar"><i id="lanBar" style="background:var(--warm)"></i></div></div>
+    <div class="stat">Сытость<div class="bar"><i id="satBar" style="background:var(--moss)"></i><s style="left:25%"></s><s style="left:50%"></s></div></div>
+    <div class="stat">Выносливость<div class="bar"><i id="stamBar" style="background:var(--brass)"></i></div></div>
+    <div class="stat">Фонарь<div class="bar"><i id="lanBar" style="background:var(--ember)"></i></div></div>
   </div>
   <div id="nav" class="panel"></div>
+  <div id="rightCol">
   <div id="right" class="panel">
-    <div><span id="shilverL">Shilver</span><span id="shilverV">0</span></div>
-    <div><span>Опыт</span><span id="xpV">0</span></div>
+    <div><span>Уровень</span><span id="heroLvV">1</span></div>
+    <div><span>Опыт</span><span id="xpV">0 / 30</span></div>
+    <div class="bar"><i id="xpBar"></i></div>
+    <div><span id="shilverL">Высеребро</span><span id="shilverV">0</span></div>
     <div><span id="toolName">Ложка</span><span id="waterV"></span></div>
+    <div id="ptsRow"><span>Не вложено очков</span><span id="ptsV">0</span></div>
   </div>
   <div id="hudBtns"><button id="btnTree"><kbd>T</kbd>Навыки</button><button id="btnInv"><kbd>I</kbd>Вещи</button><button id="btnMap"><kbd>M</kbd>Карта</button></div>
+  <div id="caveMini" class="panel"><small>Карта пещеры</small><canvas id="miniMap" width="360" height="400"></canvas></div>
+  <div id="dev">Тест: N ночь · K шкала · P высеребро и опыт · J еда и дрова · O карта · U в пещеру</div>
+  </div>
   <div id="hotbar">
-    <div class="slot" id="hs0"><i>1</i><b id="hn0"></b><span id="hc0"></span></div>
-    <div class="slot" id="hs1"><i>2</i><b id="hn1"></b><span id="hc1"></span></div>
-    <div class="slot" id="hs2"><i>3</i><b id="hn2"></b><span id="hc2"></span></div>
-    <div class="slot" id="hs3"><i>4</i><b id="hn3"></b><span id="hc3"></span></div>
+    <div class="slot" id="hs0"><i>1</i><img id="hi0" alt=""><b id="hn0"></b><span id="hc0"></span></div>
+    <div class="slot" id="hs1"><i>2</i><img id="hi1" alt=""><b id="hn1"></b><span id="hc1"></span></div>
+    <div class="slot" id="hs2"><i>3</i><img id="hi2" alt=""><b id="hn2"></b><span id="hc2"></span></div>
+    <div class="slot" id="hs3"><i>4</i><img id="hi3" alt=""><b id="hn3"></b><span id="hc3"></span></div>
   </div>
   <div id="floats"></div>
   <div id="monMeter"><b id="mmName"></b><div class="bar"><i id="mmBar"></i><b id="mmDebt"></b></div><span id="mmNum"></span></div>
@@ -53,12 +67,10 @@
   <div id="prompt" class="panel"></div>
   <div id="hint"></div>
   <div id="toast"></div>
-  <div id="progress"><div class="bar"><i id="progBar" style="background:var(--warm)"></i></div></div>
+  <div id="progress"><div class="bar"><i id="progBar" style="background:var(--ember)"></i></div></div>
   <div id="depth"></div>
-  <div id="caveMini" class="panel"><small>Карта пещеры</small><canvas id="miniMap" width="360" height="400"></canvas></div>
-  <div id="combatHud"><div id="hearts"></div><div class="azart"><span>Азарт</span><div class="bar"><i id="azartFill" style="background:#ffd65a"></i></div></div><div id="roomDots"></div><div id="lootBox"><img data-hero alt=""><b id="runLoot">+0</b></div></div>
-  <div id="bossBar"><span id="bossName"></span><div class="bar"><i id="bossFill" style="background:#ff5a3a"></i></div></div>
-  <div id="dev">Тест: N ночь · K шкала · P shilver и опыт · J еда и дрова · O карта · U в пещеру</div>
+  <div id="combatHud"><div id="hearts"></div><div class="azart"><span>Азарт</span><div class="bar"><i id="azartFill" style="background:var(--brass)"></i></div></div><div id="roomDots"></div><div id="lootBox"><img data-hero alt=""><b id="runLoot">+0</b></div></div>
+  <div id="bossBar"><span id="bossName"></span><div class="bar"><i id="bossFill" style="background:var(--crimson)"></i></div></div>
   <div id="dist"></div>
 </div>
 
@@ -71,13 +83,13 @@
 <div id="inv" hidden><div class="box panel" id="invBox"></div></div>
 <div id="map" hidden><div class="box panel"><div class="head"><h2>Карта</h2><small id="mapInfo"></small><span class="mapBtns"><button id="mapMinus">−</button><button id="mapPlus">+</button><button id="mapHome">Я</button><button id="mapClose">Закрыть</button></span></div><canvas id="mapC" width="1100" height="760"></canvas></div></div>
 <div id="caveGrid" hidden><div class="box panel"><div class="head"><h2>Куда идти дальше</h2><small>A и D выбрать, E идти. Можно кликнуть. Esc остаться</small></div><canvas id="gridC" width="760" height="560"></canvas><p id="gridInfo"></p></div></div>
-<div id="dialog" hidden><canvas id="dlgFace" width="240" height="240"></canvas><div class="dlgText"><b id="dlgName"></b><p id="dlgLine"></p><small>E, Пробел или клик: дальше</small></div></div>
+<div id="dialog" hidden><canvas id="dlgFace" width="240" height="240"></canvas><img id="dlgItem" alt="Слиток" hidden><div class="dlgText"><b id="dlgName"></b><p id="dlgLine"></p><small>E, Пробел или клик: дальше</small></div></div>
 <div id="mini" hidden><div class="box panel"><h2 id="miniTitle"></h2><canvas id="miniC" width="420" height="420"></canvas><p id="miniHelp"></p></div></div>
 <div id="card" hidden><div class="box panel"><small id="cardKicker">Новый чертёж</small><h2 id="cardTitle"></h2><div id="cardText"></div></div></div>
 
 <div id="start"><div class="box panel">
   <h1>Spoon It</h1>
-  <div class="startTop"><img data-hero alt="Волк в чёрном костюме"><p>Второй прототип. На острове камера сверху под углом, в море она за кормой. Один игрок. Вокруг только твой остров и море.</p></div>
+  <div class="startTop"><img data-hero alt="Волк в плаще"><p>Второй прототип. На острове камера сверху под углом, в море она за кормой. Один игрок. Вокруг только твой остров и море.</p></div>
   <table>
     <tr><td>WASD</td><td>Идти. На корабле W и S ход, A и D руль</td></tr>
     <tr><td>Колесо, + и −</td><td>Отдалить и приблизить камеру. В море при отдалении камера поднимается</td></tr>
@@ -86,11 +98,11 @@
     <tr><td>ЛКМ</td><td>Использовать предмет. В пещере удар, удержание сильный удар</td></tr>
     <tr><td>ПКМ</td><td>В пещере метнуть карты. В море осмотреться</td></tr>
     <tr><td>E</td><td>Действие: разговор, сундук, верстак, лодка, машина, мост, пещера, рыбалка</td></tr>
-    <tr><td>T / I / M</td><td>Древо навыков за опыт / инвентарь / карта</td></tr>
+    <tr><td>T / I / M</td><td>Древо навыков за очки уровня / инвентарь / карта</td></tr>
     <tr><td>R</td><td>Забрать шланг, а в инвентаре повернуть предмет</td></tr>
-    <tr><td>L / C</td><td>Включить или выключить фонарь / зарядить его за shilver</td></tr>
+    <tr><td>L / C</td><td>Включить или выключить фонарь / зарядить его за высеребро</td></tr>
     <tr><td>V</td><td>Надеть или снять ролики</td></tr>
-    <tr><td>F / G / H / B</td><td>Поесть / тайник shilver / святая вода / костёр</td></tr>
+    <tr><td>F / G / H / B</td><td>Поесть / тайник высеребра / святая вода / костёр</td></tr>
     <tr><td>1–4</td><td>Выбрать слот панели снизу. Что в слотах, настраивается в инвентаре</td></tr>
   </table>
   <button id="startBtn">Начать</button>
