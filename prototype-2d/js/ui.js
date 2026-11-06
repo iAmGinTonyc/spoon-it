@@ -115,7 +115,7 @@ function updateFloats(){
     const q=screenOf(MOUTH.x,monTop(),MOUTH.z);
     f.el.style.display=q.off?'none':'block';
     f.el.style.left=q.x+f.side+'px';
-    f.el.style.top=clamp(q.y-30-t*(f.heart?120:70),70,innerHeight-120)+'px';
+    f.el.style.top=clamp(q.y-120-t*(f.heart?120:70),70,innerHeight-120)+'px';
     f.el.style.opacity=clamp((1.9-t)/.5,0,1);
   }
 }
@@ -123,7 +123,8 @@ const setT=(id,v)=>{const e=$(id);if(e.textContent!==v)e.textContent=v};
 function hintText(){
   const p=me(),hot=hotAt(p.x,p.z);
   if(S.inCave)return C.chest?(C.chest.open?'Иди к двери: там выбор пути':'Зал чист: открой сундук, E'):'ЛКМ удар, удержание сильный удар, ПКМ карты, Пробел кувырок';
-  if(!S.chestOpen)return 'Открой сундук у кровати: E';
+  if(!S.chestOpen)return 'Дверь заперта. Загляни в сундук у кровати: E';
+  if(!S.doorOpen)return 'Ключ у тебя. Подойди к двери и открой её: E';
   if(meterFull())return S.onBoat?'Шкала полна: возвращайся к монстру':'Шкала полна: подойди к щели, чтобы активировать новый уровень';
   if(isNight()&&!S.lit)return S.have.lantern?(S.lantern>0?'Ты без света: включи фонарь, L':'Фонарь разряжен: заряди его, C. Или костёр B, база у дома'):'Ты без света: костёр B или база у дома';
   if(inHouse())return 'Выйди из дома и найди, кто зовёт';
@@ -147,10 +148,21 @@ function hintText(){
   }
   return nearMonster()?'Влей воду в щель: ЛКМ':'Неси воду к щели. Вместимость растёт на верстаке у дома';
 }
+/* шкала воды стоит над монстром, а верхняя панель появляется, только когда его не видно */
+function updateMeter(){
+  const m=$('monMeter'),top=$('mon');
+  const q=screenOf(MOUTH.x,monTop(),MOUTH.z),show=S.mode==='play'&&!S.inCave&&!S.ui&&!q.off&&v3.z<1&&Math.hypot(MOUTH.x-CAM.x,MOUTH.z-CAM.z)<CAM.h*1.1;
+  m.style.display=show?'block':'none';top.style.display=show?'none':'block';
+  if(!show)return;
+  const L=levelL(),lv=LEVELS[Math.min(S.level,LEVELS.length-1)];
+  m.style.left=q.x+'px';m.style.top=q.y-6+'px';
+  setT('mmName',`${lv.monster}, уровень ${S.level+1}`);setT('mmNum',`${fmtL(S.meter)} / ${fmtL(L)} л`);
+  $('mmBar').style.width=clamp(S.meter/L*100,0,100)+'%';$('mmDebt').style.width=clamp(S.debt/L*100,0,100)+'%';
+}
 function updateBubble(){
   const el=$('bubble'),p=me(),d=Math.hypot(p.x-MOUTH.x,p.z-MOUTH.z),q=screenOf(MOUTH.x,monTop(),MOUTH.z);
   if(S.mode!=='play'||S.onBoat||S.inCave||inHouse()||d>34||q.off){el.style.display='none';return}
-  el.style.display='block';el.style.left=q.x+'px';el.style.top=q.y+'px';
+  el.style.display='block';el.style.left=q.x+'px';el.style.top=(q.y-72)+'px';
   const set=PHRASES[Math.min(S.level,PHRASES.length-1)],kind=S.level<CFG.hotFromLevel;
   const t=S.bubbleT>0?S.thanksText:meterFull()?(kind?'Я расту! Иди ко мне':'Подойди ближе'):S.thirsty?(kind?'Пить… Почему ты ушёл?':'Где вода'):set.idle[S.phraseI%set.idle.length];
   if(el.textContent!==t)el.textContent=t;
@@ -179,7 +191,7 @@ function updateHUD(){
   setT('clock',night?`Ночь ${S.day} · до утра ${mmss(left)}`:`День ${S.day} · до ночи ${mmss(left)}`);
   $('satBar').style.width=S.sat+'%';$('stamBar').style.width=S.stam+'%';$('lanBar').style.width=S.lantern+'%';
   setT('shilverV',String(S.shilver));setT('xpV',String(Math.floor(S.xp)));
-  updateBubble();updateFloats();updateNav();
+  updateMeter();updateBubble();updateFloats();updateNav();
   setT('depth',S.level>0&&!S.inCave?`Вода ушла на ${Math.round(-visY(S.baseSea))} м ниже старого берега`:'');
   if(S.ui&&S.cardT>0){S.cardT=0;$('card').hidden=true}
   const hasT=S.have[S.tool];setT('toolName',hasT?TOOLS[S.tool].name:'Руки');setT('waterV',hasT?`${fmtL(S.water)} / ${fmtL(toolCap())} л`:'пусто');

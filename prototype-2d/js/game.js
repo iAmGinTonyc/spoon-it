@@ -27,6 +27,7 @@ function itemInfo(id){
   if(id==='hose')return{name:'Шланг',short:'',count:1};
   if(id==='wood')return{name:'Дрова',short:String(S.wood),count:S.wood};
   if(id==='tmap')return{name:'Карта сокровищ',short:String(S.tmap),count:S.tmap};
+  if(id==='key')return{name:'Ключ от двери',short:'один раз',count:S.key};
   if(id==='lantern')return{name:'Фонарь',short:(S.lanternOn?'вкл ':'выкл ')+Math.round(S.lantern)+'%',count:S.have.lantern?1:0};
   if(id==='skates')return{name:'Ролики',short:S.skates.on?'надеты':'сняты',count:1};
   return{name:FOODS[id].name,short:String(S[id]),count:S[id]};
@@ -82,11 +83,14 @@ function gain(id,n=1){
   if(!S.inv.some(o=>o.id===id)&&!invAdd(id)){toast('Нет места в инвентаре');return false}
   S[id]+=n;return true;
 }
+function unlockDoor(){
+  S.key=0;S.doorOpen=true;invRemove('key');blip(420,.1,'square',.06);blip(700,.18,'triangle',.07);puff(HOUSE.x,1,HOUSE.z+3.9,4);toast('Дверь открыта, ключ остался в замке');
+}
 function openChest(){
-  S.chestOpen=true;S.have.spoon=true;S.have.lantern=true;S.berries+=3;S.fish+=2;blip(500,.25,'triangle',.08);
-  invAdd('spoon');invAdd('lantern');invAdd('berries');invAdd('fish');
+  S.chestOpen=true;S.have.spoon=true;S.have.lantern=true;S.berries+=3;S.fish+=2;S.key=1;blip(500,.25,'triangle',.08);
+  invAdd('spoon');invAdd('lantern');invAdd('key');invAdd('berries');invAdd('fish');
   hotAdd('spoon',true);hotAdd('lantern');hotAdd('berries');hotAdd('fish');
-  toast('В сундуке: ложка, фонарь, ягоды и рыба. Они уже на панели снизу');
+  toast('В сундуке: ложка, фонарь, ягоды, рыба и ключ от двери');
 }
 function toggleLantern(){
   if(!S.have.lantern)return toast('Фонарь лежит в сундуке дома');
@@ -254,7 +258,8 @@ function pour(L,viaHose=false){
   splash(MOUTH.x,MOUTH.z+1,5);
   showGain(pay);
   if(toDebt>0)toast('Кровавая вода: монстр платит, но шкала стоит');
-  if(S.mapCharge>=CFG.mapEvery)giveMap();
+  if(!S.firsts.drank){S.firsts.drank=true;if(!S.ui)say([{who:'monster',t:'Вода… Спасибо! Теперь я выживу.'},{who:'monster',t:'Но этого мало. Принеси ещё, пожалуйста!'}])}
+  if(S.mapCharge>=CFG.mapEvery&&!S.ui)giveMap();
 }
 
 /* ---------- новое: карты сокровищ ---------- */
@@ -340,6 +345,7 @@ function getAction(){
     return null;
   }
   if(!S.chestOpen&&dist2(CHEST,S)<2.7)return{label:'Открыть сундук',fn:openChest};
+  if(!S.doorOpen&&dist2(houseW(0,3.4),S)<2.4)return S.key?{label:'Открыть дверь ключом',fn:unlockDoor}:{label:'Дверь заперта: ключ должен быть в сундуке',fn(){blip(160,.1,'square',.05);toast('Заперто. Посмотри в сундуке у кровати')}};
   if(dist2(BENCH,S)<3.8)return{label:'Верстак: прокачать тару',fn(){openUI('bench')}};
   if(nearMonster())return{label:S.talked[Math.min(S.level,TALK.length-1)]?'Поговорить':'Поговорить: ему есть что сказать',fn:talkMonster};
   if(S.car.made&&Math.hypot(S.car.x-S.x,S.car.z-S.z)<4)return{label:'Сесть в машину',fn:enterCar};
@@ -451,7 +457,7 @@ function spawnDigs(loc){
 function slide(ox,oz,nx,nz){
   let x=nx,z=nz;
   if(Math.hypot(nx-HOUSE.x,nz-HOUSE.z)<12){
-    const a=houseL(ox,oz),b=houseL(nx,nz),hit=(u,v)=>HOUSE_BOX.some(r=>u>r[0]-.3&&u<r[1]+.3&&v>r[2]-.3&&v<r[3]+.3);
+    const a=houseL(ox,oz),b=houseL(nx,nz),hit=(u,v)=>HOUSE_BOX.some(r=>u>r[0]-.3&&u<r[1]+.3&&v>r[2]-.3&&v<r[3]+.3)||(!S.doorOpen&&u>-1.3&&u<1.3&&v>3.2&&v<4.1);
     let u=b.x,v=b.z;if(hit(u,a.z))u=a.x;if(hit(u,v))v=a.z;const q=houseW(u,v);x=q.x;z=q.z;
   }
   for(const c of solids){const dx=x-c.x,dz=z-c.z,d=Math.hypot(dx,dz);if(d<c.r&&d>0){x=c.x+dx/d*c.r;z=c.z+dz/d*c.r}}

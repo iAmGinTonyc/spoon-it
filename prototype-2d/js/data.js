@@ -48,8 +48,8 @@ SKILLS.push({group:'Боец',note:'Когти и карты в пещерах',
   {id:'hide',name:'Толстая шкура',text:'Ещё одно сердце',max:3,c0:30,req:'claw'},
   {id:'deck',name:'Краплёная колода',text:'Карты бьют сильнее и тратят меньше азарта',max:3,c0:20,req:'claw'}]});
 const PHRASES=[
-  {idle:['Помогите, хочу пить','Здесь так сухо…','Есть тут кто?','Хоть глоточек…'],thanks:['Спасибо!','Вкусно!','Ещё капельку!','Ты добрый!']},
-  {idle:['Ты вернулся!','Ещё водички?','Я чуть-чуть подрос','Не уходи надолго'],thanks:['Спасибо, друг!','Обожаю воду!','Ты лучший!','Ещё, ещё!']},
+  {idle:['Помогите, хочу пить','Здесь так сухо…','Есть тут кто?','Хоть глоточек…'],thanks:['Ещё, пожалуйста!','Ещё глоточек, пожалуйста!','Вкусно! Ещё, пожалуйста!','Пожалуйста, ещё!']},
+  {idle:['Ты вернулся!','Ещё водички?','Я чуть-чуть подрос','Не уходи надолго'],thanks:['Спасибо! Ещё, пожалуйста!','Обожаю воду! Ещё!','Ещё, пожалуйста!','Ещё, ещё!']},
   {idle:['Мне уже лучше','Посмотри, какой я!','Вода такая вкусная','Давай ещё?'],thanks:['Ура, вода!','Какая прохладная!','Спасибо-спасибо!','Ты мой друг!']},
   {idle:['Я так рад, что ты есть','Хочу расти дальше','А море большое?','Ты не устал?'],thanks:['Мур-мур!','Ещё глоточек!','С тобой хорошо','Спасибо, родной!']},
   {idle:['Мне тесно в щели','Я скоро вылезу','Слышишь, как я расту?','Ещё немного'],thanks:['Ммм…','Ещё','Как же вкусно','Не останавливайся']},
@@ -66,7 +66,7 @@ function vnoise(x,y){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,
   return (a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v)*2-1}
 const fmtL=v=>v<10?String(+v.toFixed(v<.1?3:2)).replace('.',','):Math.round(v).toLocaleString('ru-RU');
 const mmss=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-const SHAPES={spoon:[1,1],ladle:[1,2],pot:[2,1],bucket:[2,1],canister:[2,2],axe:[1,2],hose:[3,1],berries:[1,1],fish:[1,1],food:[1,1],holy:[1,1],wood:[1,1],tmap:[1,1],lantern:[1,1],skates:[2,1]};
+const SHAPES={spoon:[1,1],ladle:[1,2],pot:[2,1],bucket:[2,1],canister:[2,2],axe:[1,2],hose:[3,1],berries:[1,1],fish:[1,1],food:[1,1],holy:[1,1],wood:[1,1],tmap:[1,1],lantern:[1,1],skates:[2,1],key:[1,1]};
 const GW=6,GH=4,CELL=62;
 const coord=(x,z)=>`${z<=0?'С':'Ю'} ${Math.abs(Math.round(z))} · ${x>=0?'В':'З'} ${Math.abs(Math.round(x))}`;
 
@@ -103,7 +103,7 @@ const S={
   up:{spoon:{vol:0,grip:0,dual:false},ladle:{vol:0,grip:0,dual:false},pot:{vol:0,grip:0,dual:false},bucket:{vol:0,grip:0,dual:false},canister:{vol:0,grip:0,dual:false},boat:{speed:0},axe:{sharp:0,grip:0}},
   have:{spoon:false,ladle:false,pot:false,bucket:false,canister:false,lantern:false},bp:{},axe:false,woodFrac:0,chopT:0,
   tachka:false,hose:{made:false,placed:false,burn:0,tick:0,x:0,z:0},
-  maps:[],mapCharge:0,mapN:0,haul:0,opened:[],lanternOn:false,skates:{made:false,on:false},car:{made:false,on:false,x:0,z:0},quakes:0,quakeT:150,shakeT:0,bridges:[],talked:{},
+  key:0,doorOpen:false,maps:[],mapCharge:0,mapN:0,haul:0,opened:[],lanternOn:false,skates:{made:false,on:false},car:{made:false,on:false,x:0,z:0},quakes:0,quakeT:150,shakeT:0,bridges:[],talked:{},
 };
 const levelL=()=>LEVELS[Math.min(S.level,LEVELS.length-1)].liters;
 const isNight=()=>S.t>=CFG.dayLen;

@@ -179,3 +179,9 @@ body.cine #skipHint{opacity:.8}
 #caveGrid .box{width:min(800px,96vw)}
 #caveGrid canvas{display:block;width:100%;max-height:68vh;object-fit:contain;cursor:pointer}
 #caveGrid p{margin:6px 0 0;text-align:center;color:var(--ink);font-size:16px;min-height:22px}
+
+#monMeter{position:absolute;left:0;top:0;transform:translate(-50%,-100%);width:190px;text-align:center;display:none;background:rgba(30,20,34,.82);border:1px solid var(--line);border-radius:9px;padding:4px 9px 5px;pointer-events:none;font-variant-numeric:tabular-nums}
+#mmName{display:block;font-size:12px;font-weight:600;color:var(--warm)}
+#monMeter .bar{height:11px;margin-top:3px;border-radius:6px}
+#mmBar{background:linear-gradient(90deg,#3fb8c8,#7fe6e0)!important}
+#mmNum{display:block;font-size:12px;margin-top:2px}

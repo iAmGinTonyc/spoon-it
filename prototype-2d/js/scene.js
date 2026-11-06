@@ -241,6 +241,7 @@ const chestOpenM=spr(A.chestO,CHEST.x,CHEST.z+.3);chestOpenM.visible=false;
 const roofMat=makeMat(A.house.tex,false);
 const roof=spr(A.house,HOUSE.x,HOUSE.z+3.9,1,false,roofMat);
 {const q=new THREE.Mesh(shadowGeo,regFlat(makeMat(A.house.tex,true,{dark:.4,shear:1.05})));q.position.set(HOUSE.x,HY+.07,HOUSE.z+4);q.scale.set(A.house.w,1,7);q.renderOrder=-9;worldG.add(q)}
+const houseDoor=spr(artHouseDoor(),HOUSE.x,HOUSE.z+3.95,1,false,undefined,HY);
 put(A.bench,BENCH.x,BENCH.z,{solid:1.7});
 put(A.pot,POT.x,POT.z,{solid:1.2});
 for(const[a,x,z,o]of[[A.fence,-13.6,-1.8,{}],[A.fence,-1.6,-2.3,{flip:true}],[A.fence,1.6,-3,{}],[A.sign,3,1.6,{}],[A.logs,-14.5,-4,{solid:1}],[A.barrel,-1.4,-4.2,{solid:.7}],[A.barrel,-.2,-3.5,{solid:.7,scale:.8}],
@@ -615,6 +616,7 @@ function updateScene(dt){
     if(f.m.visible&&Math.hypot(f.x-CAM.x,f.z-CAM.z)<110&&Math.random()<dt*.5){emit(A.fishJ,f.x+(Math.random()-.5)*2,.1,f.z+(Math.random()-.5)*2,(Math.random()-.5)*2,6.5,(Math.random()-.5)*2,1.2,12,f.big?1.5:1)}}
   for(const w of wrecks){w.m.visible=w.cd<=0;w.m.position.y=sv+.05;if(w.cd<=0&&Math.hypot(w.x-CAM.x,w.z-CAM.z)<100&&Math.random()<dt*2)emit(A.bubble,w.x+(Math.random()-.5)*3,.1,w.z+(Math.random()-.5)*3,0,1.4,0,1.2,0,.8)}
   for(const c of crates){c.m.visible=c.cd<=0;c.m.position.set(c.x,sv+Math.sin(time*1.5+c.x)*.12-.15,c.z)}
+  houseDoor.visible=!S.doorOpen;
   const inside=inHouse();roofMat.uniforms.uOp.value+=((inside?.08:1)-roofMat.uniforms.uOp.value)*Math.min(1,dt*7);
   chestE.gone=S.chestOpen;if(S.chestOpen){chestE.m.visible=false;chestOpenM.visible=true}
   if(Math.random()<dt*2.2)emit(A.puff,HOUSE.x+3.4,9.2,HOUSE.z+3.9,.4,1.3,0,3,0,.9+Math.random()*.6);
