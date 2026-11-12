@@ -296,6 +296,20 @@ function fellTree(t){
   const i=solids.indexOf(t.e.solid);if(i>=0)solids.splice(i,1);
   put(A.stump,t.x,t.z,{shadow:false});puff(t.x,1.2,t.z,6);objBusy=true;
 }
+/* ---------- лут на земле: дрова из деревьев падают рядом и ждут, пока их подберут кнопкой Q ---------- */
+const DROP_ART={wood:sheetArt('logs0',.95)};
+const groundDrops=[];
+function dropLoot(kind,x,z,n=1,instant=false){
+  for(let i=0;i<n;i++){
+    let tx=x,tz=z;
+    if(!instant)for(let k=0;k<8;k++){const a=Math.random()*6.28,r=1+Math.random()*1.3,qx=x+Math.cos(a)*r,qz=z+Math.sin(a)*r*.7+.9;if(groundH(qx,qz)>S.seaY+.1){tx=qx;tz=qz;break}}
+    const y0=Yat(x,z)+1.6,m=spr(DROP_ART[kind],x,z,1,Math.random()<.5,undefined,y0);
+    groundDrops.push({kind,x0:x,z0:z,x:tx,z:tz,y0,t:instant?1:0,m});
+  }
+}
+function updateDrops(dt){for(const d of groundDrops){const ly=Yat(d.x,d.z);
+  if(d.t<1){d.t=Math.min(1,d.t+dt*2.4);const k=d.t;d.m.position.set(lerp(d.x0,d.x,k),lerp(d.y0,ly,k)+Math.sin(k*3.14)*1.1,lerp(d.z0,d.z,k))}
+  else d.m.position.set(d.x,ly+.05+Math.max(0,Math.sin(time*3+d.x))*.08,d.z)}}
 function addBush(x,z){
   const e=put(A.bush,x,z,{solid:.7,sw:.5}),bare=spr(A.bushBare,x,z);bare.visible=false;
   bushes.push({x,z,cd:0,e,bare});
@@ -695,6 +709,7 @@ function updateScene(dt){
   for(const f of fishSpots){f.dry=groundH(f.x,f.z)>S.seaY-.8;f.m.visible=!f.dry&&f.cd<=0;f.m.position.y=sv+.05;const s=(f.big?5.6:4)*(1+Math.sin(time*2.2+f.x)*.16);f.m.scale.set(s,1,s*.8);
     if(f.m.visible&&Math.hypot(f.x-CAM.x,f.z-CAM.z)<110&&Math.random()<dt*.5){emit(A.fishJ,f.x+(Math.random()-.5)*2,.1,f.z+(Math.random()-.5)*2,(Math.random()-.5)*2,6.5,(Math.random()-.5)*2,1.2,12,f.big?1.5:1)}}
   for(const w of wrecks){w.m.visible=w.cd<=0;w.m.position.y=sv+.05;if(w.cd<=0&&Math.hypot(w.x-CAM.x,w.z-CAM.z)<100&&Math.random()<dt*2)emit(A.bubble,w.x+(Math.random()-.5)*3,.1,w.z+(Math.random()-.5)*3,0,1.4,0,1.2,0,.8)}
+  updateDrops(dt);
   for(const c of crates){c.m.visible=c.cd<=0;c.m.position.set(c.x,sv+Math.sin(time*1.5+c.x)*.12-.15,c.z)}
   houseDoor.visible=!S.doorOpen;
   const inside=inHouse();roofMat.uniforms.uOp.value+=((inside?.08:1)-roofMat.uniforms.uOp.value)*Math.min(1,dt*7);wallMat.uniforms.uOp.value=(1-roofMat.uniforms.uOp.value)/.92;

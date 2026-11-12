@@ -8,7 +8,7 @@ function saveGame(){
   if(noSave||S.mode!=='play'||S.inCave||cut||MG.on)return false;
   const s={};for(const k in S)if(!SAVE_SKIP.has(k))s[k]=S[k];
   const data={v:1,at:Date.now(),S:s,trees:trees.map(t=>t.hp),bushes:bushes.map(b=>Math.max(0,b.cd)),crates:crates.map(c=>Math.max(0,c.cd)),
-    fish:fishSpots.map(f=>Math.max(0,f.cd)),wrecks:wrecks.map(w=>Math.max(0,w.cd)),locs:LOCS.map(l=>!!l.found),digs:digs.map(({m,...o})=>o),fog:packFog()};
+    fish:fishSpots.map(f=>Math.max(0,f.cd)),wrecks:wrecks.map(w=>Math.max(0,w.cd)),locs:LOCS.map(l=>!!l.found),drops:groundDrops.filter(g=>g.t>=1).map(g=>({k:g.kind,x:g.x,z:g.z})),digs:digs.map(({m,...o})=>o),fog:packFog()};
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(data));lastSave=Date.now();return true}catch(e){return false}
 }
 function readSave(){try{const t=localStorage.getItem(SAVE_KEY);return t?JSON.parse(t):null}catch(e){return null}}
@@ -23,6 +23,7 @@ function loadGame(d){
   fishSpots.forEach((f,i)=>f.cd=d.fish[i]||0);wrecks.forEach((w,i)=>w.cd=d.wrecks[i]||0);
   LOCS.forEach((l,i)=>l.found=!!d.locs[i]);
   for(const g of[...digs])removeDig(g);for(const g of d.digs)addDig(g.x,g.z,g);
+  for(const g of d.drops||[])dropLoot(g.k,g.x,g.z,1,true);
   if(d.fog)unpackFog(d.fog);MV.sea=null;
   for(const b of S.bridges)layBridge(b);
   if(S.hose.placed)layHose();

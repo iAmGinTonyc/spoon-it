@@ -44,7 +44,7 @@ function handleKey(code){
   if(code==='KeyJ'){S.food+=3;S.fish+=3;S.wood+=5}
   if(code==='KeyO')giveMap();
   if(code==='KeyU'&&!S.onBoat)enterCave(CAVES[0]);
-  if(code==='KeyQ')startQuake();
+  if(code==='KeyQ')return pickDrops();
 }
 addEventListener('keydown',e=>{if(e.repeat)return;keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();handleKey(e.code)});
 addEventListener('keyup',e=>{keys[e.code]=false});
@@ -200,10 +200,10 @@ function updateHUD(){
     setT('hn'+i,inf.name);setT('hc'+i,inf.short);
     {const im=$('hi'+i),src=h?itemIcon(h):'';if(im.dataset.s!==String(h)+!!src){im.dataset.s=String(h)+!!src;if(src)im.src=src;else im.removeAttribute('src')}}
   }
-  const a=getAction(),b=getPrimary(),pr=$('prompt');
-  if(a||b){
+  const a=getAction(),b=getPrimary(),pk=S.mode==='play'&&!S.ui?nearDrops().length:0,pr=$('prompt');
+  if(a||b||pk){
     pr.style.display='block';
-    const h=(b?`<span><kbd>ЛКМ</kbd>${b.label}</span>`:'')+(a?`<span><kbd>E</kbd>${a.label}</span>`:'');
+    const h=(b?`<span><kbd>ЛКМ</kbd>${b.label}</span>`:'')+(a?`<span><kbd>E</kbd>${a.label}</span>`:'')+(pk?`<span><kbd>Q</kbd>Подобрать${pk>1?`: ${pk}`:''}</span>`:'');
     if(pr.dataset.h!==h){pr.dataset.h=h;pr.innerHTML=h}
   }else pr.style.display='none';
   setT('hint',S.mode==='play'&&!S.ui?hintText():'');

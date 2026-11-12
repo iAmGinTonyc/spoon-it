@@ -90,6 +90,13 @@ function gain(id,n=1){
   if(!S.inv.some(o=>o.id===id)&&!invAdd(id)){toast('Нет места в инвентаре');return false}
   S[id]+=n;return true;
 }
+/* подобрать лут, лежащий рядом */
+const nearDrops=()=>S.onBoat||S.inCave?[]:groundDrops.filter(d=>d.t>=1&&Math.hypot(d.x-S.x,d.z-S.z)<3.2);
+function pickDrops(){
+  const l=nearDrops();if(!l.length)return;let n=0;
+  for(const d of l){if(!gain(d.kind,1))break;worldG.remove(d.m);groundDrops.splice(groundDrops.indexOf(d),1);n++}
+  if(n){blip(600,.08,'triangle',.05);toast(n>1?`Подобрано дров: ${n}`:'Подобраны дрова')}
+}
 function unlockDoor(){
   S.key=0;S.doorOpen=true;invRemove('key');blip(420,.1,'square',.06);blip(700,.18,'triangle',.07);puff(HOUSE.x,1,HOUSE.z+3.9,4);toast('Дверь открыта, ключ остался в замке');
 }
@@ -152,7 +159,8 @@ function primaryAction(){
 }
 function chop(t){
   if(S.chopT>0)return;S.chopT=.7*Math.pow(.8,S.up.axe.grip);t.hp--;
-  S.woodFrac+=1+S.up.axe.sharp*.5;const w=Math.floor(S.woodFrac);S.woodFrac-=w;if(w>0&&!gain('wood',w))S.woodFrac+=w;
+  S.woodFrac+=1+S.up.axe.sharp*.5;const w=Math.floor(S.woodFrac);S.woodFrac-=w;
+  if(w>0){dropLoot('wood',t.x,t.z,w);if(!S.firsts.dropHint){S.firsts.dropHint=true;toast('Дрова падают на землю: подбери их, Q')}}
   S.pourT=.15;blip(150,.09,'square',.05);t.shake=1;if(t.hp<=0)fellTree(t);
 }
 function scoopStart(){
@@ -176,7 +184,6 @@ const darkLimit=()=>CFG.darkLimit+S.sk.dark*3;
 /* радиус, в котором фонарь отпугивает тварей */
 const lanternR=()=>4.5+1.2*S.up.lantern.radius;
 /* ---------- монстр прыгает за героем по щелям островов ---------- */
-function islandAt(x,z){for(const l of LOCS)if(S.opened.includes(l.id)&&Math.hypot(x-l.x,z-l.z)<l.r+6)return l.id;return Math.hypot(x,z)<110?'home':null}
 function updateMonsterHop(dt){
   const j=S.monJump;
   if(j){j.t+=dt;
@@ -187,11 +194,11 @@ function updateMonsterHop(dt){
       if(j.t>=1.1){S.monJump=null;S.monSink=0;S.monPop=1;puff(MOUTH.x,1,MOUTH.z,8);blip(420,.3,'triangle',.07);
         if(!S.firsts.hop&&j.to!=='home'){S.firsts.hop=true;say(HOP_TALK)}}}
     return}
-  if(S.mode!=='play'||S.ui)return;
-  const id=S.onBoat?null:islandAt(S.x,S.z);
-  if(!id||id===S.monAt){S.hopT=0;return}
-  const s=SLITS.find(q=>q.id===id);if(!s||groundH(s.x,s.z)<S.seaY+.2)return;
-  S.hopT=(S.hopT||0)+dt;if(S.hopT>6){S.hopT=0;S.monJump={to:id,t:0,moved:false};rumble(1)}
+  if(S.mode!=='play'||S.ui||S.onBoat){S.hopT=0;return}
+  /* волк подошёл к пустой щели: через секунду монстр выныривает там */
+  const p=me(),s=SLITS.find(q=>q.id!==S.monAt&&Math.hypot(q.x-p.x,q.z-p.z)<4.5&&groundH(q.x,q.z)>S.seaY+.2);
+  if(!s){S.hopT=0;return}
+  S.hopT=(S.hopT||0)+dt;if(S.hopT>=1){S.hopT=0;S.monJump={to:s.id,t:.6,moved:false};rumble(.6)}
 }
 function endAttack(msg){S.attacking=false;S.bleeding=false;if(msg)toast(msg)}
 function steal(){

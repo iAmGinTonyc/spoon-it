@@ -91,9 +91,6 @@ const LOCS=[
   {id:'bereg', name:'Дальний берег',   lv:7,x:268, z:196, r:36,grass:.75,rock:.2, dark:0,seed:71},
 ];
 
-/* щели: за домом и на каждом острове. Монстр сидит в одной и прыгает туда, где герой */
-const SLITS=[{id:'home',x:MOUTH.x,z:MOUTH.z},...LOCS.map(l=>({id:l.id,x:l.x-4,z:l.z-4}))];
-
 /* ---------- состояние ---------- */
 const S={
   mode:'start',ui:null,t:70,day:1,level:0,meter:0,debt:0,nightBlood:0,baseSea:0,seaY:0,

@@ -59,6 +59,8 @@ const Yat=(x,z)=>visY(groundH(x,z));
 const seaVis=()=>visY(S.seaY);
 /* вход в пещеру есть на каждом острове */
 const CAVES=[{id:'home',name:'Пещера под домом',lv:0,x:-17,z:13},...LOCS.map(l=>({id:l.id,name:`Пещера: ${l.name}`,lv:l.lv,x:l.x-4,z:l.z-l.r*.42,loc:l}))];
+/* щели: за домом и на каждом острове, на другой стороне от входа в пещеру. Монстр сидит в одной и выныривает там, куда подошёл волк */
+const SLITS=[{id:'home',x:MOUTH.x,z:MOUTH.z},...LOCS.map(l=>{const c=CAVES.find(q=>q.id===l.id),dx=c.x-l.x,dz=c.z-l.z,d=Math.hypot(dx,dz)||1;return{id:l.id,x:l.x-dx/d*l.r*.4,z:l.z-dz/d*l.r*.4}})];
 function shorePoint(angle,from=20){
   for(let r=from;r<400;r++){const x=Math.cos(angle)*r,z=Math.sin(angle)*r;
     if(groundH(x,z)<S.baseSea-.7)return{x,z,r}}
