@@ -16,6 +16,7 @@ function mergeInto(a,b){for(const k in b){const v=b[k];if(v&&typeof v==='object'
 function loadGame(d){
   mergeInto(S,d.S);
   {const s=SLITS.find(q=>q.id===S.monAt)||SLITS[0];MOUTH.x=s.x;MOUTH.z=s.z}
+  if(!inHouse())S.firsts.outside=true;
   Object.assign(S,{mode:'play',ui:null,wakeT:99,inCave:false,scoopT:0,pourT:0,attacking:false,bleeding:false});
   for(let i=0;i<Math.min(S.quakes,QUAKES.length);i++)carveChasm(QUAKES[i],2.6);
   trees.forEach((t,i)=>{const hp=d.trees[i];if(hp==null)return;if(hp<=0&&t.hp>0){t.hp=0;fellTree(t)}else t.hp=hp});

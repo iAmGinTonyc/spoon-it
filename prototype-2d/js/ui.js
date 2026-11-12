@@ -152,7 +152,7 @@ function hintText(){
 /* шкала воды стоит над монстром, а верхняя панель появляется, только когда его не видно */
 function updateMeter(){
   const m=$('monMeter');
-  const q=screenOf(MOUTH.x,monTop(),MOUTH.z),show=S.mode==='play'&&!S.inCave&&!S.ui&&!q.off&&v3.z<1&&Math.hypot(MOUTH.x-CAM.x,MOUTH.z-CAM.z)<CAM.h*1.1;
+  const q=screenOf(MOUTH.x,monTop(),MOUTH.z),show=S.mode==='play'&&S.firsts.outside&&!S.inCave&&!S.ui&&!q.off&&v3.z<1&&Math.hypot(MOUTH.x-CAM.x,MOUTH.z-CAM.z)<CAM.h*1.1;
   m.style.display=show?'block':'none';
   if(!show)return;
   const L=levelL(),lv=LEVELS[Math.min(S.level,LEVELS.length-1)];
@@ -162,7 +162,7 @@ function updateMeter(){
 }
 function updateBubble(){
   const el=$('bubble'),p=me(),d=Math.hypot(p.x-MOUTH.x,p.z-MOUTH.z),q=screenOf(MOUTH.x,monTop(),MOUTH.z);
-  if(S.mode!=='play'||S.onBoat||S.inCave||inHouse()||d>34||q.off){el.style.display='none';return}
+  if(S.mode!=='play'||!S.firsts.outside||S.onBoat||S.inCave||inHouse()||d>34||q.off){el.style.display='none';return}
   el.style.display='block';el.style.left=q.x+'px';el.style.top=(q.y-72)+'px';
   const set=PHRASES[Math.min(S.level,PHRASES.length-1)],kind=S.level<CFG.hotFromLevel;
   const t=S.bubbleT>0?S.thanksText:meterFull()?(kind?'Я расту! Иди ко мне':'Подойди ближе'):S.thirsty?(kind?'Пить… Почему ты ушёл?':'Где вода'):set.idle[S.phraseI%set.idle.length];

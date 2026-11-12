@@ -252,12 +252,15 @@ const monScale=()=>monBase()*(1+Math.sin((S.monPop||0)*9)*(S.monPop||0)*.28);
 const monHeight=()=>monBodyH(monStage())*monScale()*(1-MON_SINK)+.25;
 const crackTarget=()=>MF[monStage()][0].w*MON_K*monBase()*1.08/(2*CRACK_A);
 const HY=Yat(HOUSE.x,HOUSE.z);
-flat(A.floor,HOUSE.x,HOUSE.z,9.6,7.6,.08,undefined,-8,HY);
-const wallMat=makeMat(A.wall.tex,false,{op:0});put(A.wall,HOUSE.x,HOUSE.z-3.7,{shadow:false}).m.material=wallMat;
-put(A.bed,HOUSE.x-3.2,HOUSE.z+.2,{shadow:false});
-put(A.table,HOUSE.x+3,HOUSE.z-2,{shadow:false});
+const floorM=flat(A.floor,HOUSE.x,HOUSE.z,9.6,7.6,.08,undefined,-8,HY);
+const wallMat=makeMat(A.wall.tex,false,{op:0}),wallE=put(A.wall,HOUSE.x,HOUSE.z-3.7,{shadow:false});wallE.m.material=wallMat;
+const bedE=put(A.bed,HOUSE.x-3.2,HOUSE.z+.2,{shadow:false});
+const tableE=put(A.table,HOUSE.x+3,HOUSE.z-2,{shadow:false});
 const chestE=put(A.chest,CHEST.x,CHEST.z+.3,{shadow:false});
 const chestOpenM=spr(A.chestO,CHEST.x,CHEST.z+.3);chestOpenM.visible=false;
+/* всё, что внутри дома, живёт в своей группе: снаружи его прячет фасад, а в начале игры видна только комната */
+const houseG=new THREE.Group();scene.add(houseG);
+for(const m of[floorM,wallE.m,bedE.m,tableE.m,chestE.m,chestOpenM])houseG.add(m);
 const roofMat=makeMat(A.house.tex,false);
 const roof=spr(A.house,HOUSE.x,HOUSE.z+3.9,1,false,roofMat);
 {const q=new THREE.Mesh(shadowGeo,regFlat(makeMat(A.house.tex,true,{dark:.4,shear:1.05})));q.position.set(HOUSE.x,HY+.07,HOUSE.z+4);q.scale.set(A.house.w,1,7);q.renderOrder=-9;worldG.add(q)}
@@ -500,7 +503,7 @@ function emit(a,x,y,z,vx,vy,vz,life,g=12,size=1,abs=false,wait=0){
   const p=parts.find(q=>q.life<=0);if(!p)return;
   const base=abs||S.inCave?0:Math.max(Yat(x,z),seaVis());
   const drop=a===A.drop;if(!p.mats.has(a))p.mats.set(a,makeMat(a.tex,false,drop?{mask:true,glow:.35}:{}));
-  p.m.material=p.mats.get(a);p.m.scale.set(a.w*size,a.h*size,1);p.m.position.set(x,y+base,z);p.m.visible=!wait;
+  p.m.material=p.mats.get(a);p.m.renderOrder=a===A.puff?20:0;p.m.scale.set(a.w*size,a.h*size,1);p.m.position.set(x,y+base,z);p.m.visible=!wait;
   if(drop)p.m.material.uniforms.uOp.value=1;
   Object.assign(p,{life,life0:life,grow:g===0?1:0,vx,vy,vz,g,y:y+base,floor:base,drop,size,wait,gen:0,ph:Math.random()*6});return p;
 }
@@ -685,6 +688,10 @@ function updateHero(dt,baseY){
 }
 function updateScene(dt){
   time+=dt;
+  /* пока волк не вышел из дома, мир за стенами не виден. Снаружи внутренности дома прячутся за фасадом */
+  {const indoor=!S.firsts.outside;houseG.visible=!S.inCave&&(indoor||roofMat.uniforms.uOp.value<.6);
+    if(!S.inCave){worldG.visible=!indoor;sky.visible=!indoor}
+    if(indoor&&S.mode==='play'&&!S.onBoat&&!inHouse()){S.firsts.outside=true;const f=$('fade');f.textContent='';f.style.transition='none';f.style.opacity=.92;requestAnimationFrame(()=>{f.style.transition='opacity 1.3s';f.style.opacity=0})}}
   const n=S.inCave?0:nightness(),dusk=Math.max(0,1-Math.abs(n-.5)*2);
   if(!S.seaLocked)S.seaY+=(seaTarget()-S.seaY)*Math.min(1,dt*.8);
   GU.uT.value=time;SKY.uT.value=time;SKY.uNight.value=n;
@@ -714,7 +721,8 @@ function updateScene(dt){
   houseDoor.visible=!S.doorOpen;
   const inside=inHouse();roofMat.uniforms.uOp.value+=((inside?.08:1)-roofMat.uniforms.uOp.value)*Math.min(1,dt*7);wallMat.uniforms.uOp.value=(1-roofMat.uniforms.uOp.value)/.92;
   chestE.gone=S.chestOpen;if(S.chestOpen){chestE.m.visible=false;chestOpenM.visible=true}
-  if(Math.random()<dt*2.2)emit(A.puff,HOUSE.x+3.4,9.2,HOUSE.z+3.9,.4,1.3,0,3,0,.9+Math.random()*.6);
+  /* дым из трубы: труба на картинке дома правее середины, у самого верха */
+  if(S.firsts.outside&&Math.random()<dt*4.5){const u=WU.uUp.value,h=8.2;emit(A.puff,HOUSE.x+2.3+(Math.random()-.5)*.2,HY+u.y*h,HOUSE.z+3.9+u.z*h,.2+(Math.random()-.5)*.2,.9,-.1,3,0,.4+Math.random()*.3,true)}
 
   /* зверёк сидит в щели и растёт с уровнем */
   /* улыбка: туда и обратно по 4 кадрам ряда */
