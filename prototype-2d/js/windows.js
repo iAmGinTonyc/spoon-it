@@ -2,11 +2,13 @@
 /* ---------- окна: древо навыков и инвентарь ---------- */
 const cost=(c0,n)=>Math.ceil(c0*Math.pow(CFG.g,n+1));
 function openUI(kind){
+  $('pause').hidden=true;
   S.ui=kind;S.scoopT=0;
   $('menu').hidden=!(kind==='tree'||kind==='bench');$('inv').hidden=kind!=='inv';$('map').hidden=kind!=='map';
   if(kind==='tree')renderTree();else if(kind==='bench')renderBench();else if(kind==='map')drawMap();else{S.invSlot=S.sel;renderInv()}
 }
-function closeUI(){S.ui=null;$('menu').hidden=true;$('inv').hidden=true;$('map').hidden=true}
+const winOpen=()=>['menu','inv','map','pause'].some(id=>!$(id).hidden);
+function closeUI(){S.ui=null;$('menu').hidden=true;$('inv').hidden=true;$('map').hidden=true;$('pause').hidden=true}
 function toggleUI(kind){if(S.mode!=='play')return;if(S.ui===kind)closeUI();else openUI(kind)}
 
 const pipsHtml=(n,max)=>max>1?`<div class="pips">${Array.from({length:max},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')}</div>`:'';
@@ -82,6 +84,14 @@ function renderBench(){
     ax.insertAdjacentHTML('beforeend','<div class="root">Топор<small>Рубит деревья</small></div>');
     node(ax,'Острота','Больше дров с удара',a.sharp,5,cost(20,a.sharp),()=>{a.sharp++});
     node(ax,'Рукоять','Рубишь быстрее',a.grip,5,cost(20,a.grip),()=>{a.grip++});
+  }
+  const ln=document.createElement('div');tree.append(ln);
+  if(!S.have.lantern)ln.insertAdjacentHTML('beforeend','<div class="root locked">Фонарь<small>Лежит в сундуке дома</small></div>');
+  else{
+    const u=S.up.lantern;
+    ln.insertAdjacentHTML('beforeend','<div class="root">Фонарь<small>Отпугивает демонов и тварей в пещерах</small></div>');
+    node(ln,'Радиус','Свет и отпугивание дальше',u.radius,5,cost(25,u.radius),()=>{u.radius++});
+    node(ln,'Длительность','Заряд тратится медленнее',u.life,5,cost(25,u.life),()=>{u.life++});
   }
   const close=document.createElement('button');close.className='closeBtn';close.textContent='Закрыть (Esc)';close.onclick=closeUI;box.append(close);
 }

@@ -1,12 +1,13 @@
 /* Spoon It 2D: настройки, данные и состояние. Баланс совпадает с первым прототипом */
 const CFG = {
+  quakesOn:false, /* разломы пока выключены */
   dayLen: 10*60, nightLen: 6*60, duskLen: 45,
   g: 1.2, payK: 13.4, payP: .66, nightPay: 2,
   drop: 1.6, hotR: 112, hotFromLevel: 5,
   hungry: 25, fed: 50, darkLimit: 10,
   satDecay: 100/(14*60), stealEvery: 1.4,
   nightCapShare: .25, bleedSeconds: 20,
-  lanternDrain: 100/300, lanternStep: 25, lanternPrice: 5,
+  lanternDrain: 100/150, lanternStep: 25, lanternPrice: 5,
   hoseBurn: 30, hoseRate: 1, hoseTick: 3, hoseCost: 120, hoseCraftWood: 2, firePrice: 2,
   /* карта сокровищ: доля шкалы уровня, которую надо влить, чтобы монстр отдал карту */
   mapEvery: .35, haulTime: 3, treasureReach: 7,
@@ -71,11 +72,11 @@ const GW=6,GH=4,CELL=62;
 const coord=(x,z)=>`${z<=0?'С':'Ю'} ${Math.abs(Math.round(z))} · ${x>=0?'В':'З'} ${Math.abs(Math.round(x))}`;
 
 /* ---------- базовый лагерь. x вправо, z к камере ---------- */
-const MOUTH={x:18,z:6};
+const MOUTH={x:-3,z:-18};
 const HOUSE={x:-8,z:-8};
 const houseW=(lx,lz)=>({x:HOUSE.x+lx,z:HOUSE.z+lz});
 const houseL=(x,z)=>({x:x-HOUSE.x,z:z-HOUSE.z});
-const BASE=houseW(0,5.5), BENCH=houseW(4.4,5.4), POT=houseW(-3.8,5.4), CHEST=houseW(-1.3,-2.75), BASEFIRE=houseW(-1.6,8.4);
+const BASE=houseW(0,5.5), BENCH=houseW(-10,3.5), POT=houseW(-3.8,5.4), CHEST=houseW(-1.3,-2.75), BASEFIRE=houseW(-1.6,8.4);
 const HOUSE_BOX=[[-4.8,4.8,-3.8,-3.5],[-4.8,-4.5,-3.8,3.8],[4.5,4.8,-3.8,3.8],[-4.8,-.95,3.5,3.8],[.95,4.8,3.5,3.8],
   [-4.3,-2.3,-3.3,.1],[-1.95,-.65,-3.3,-2.35],[2.2,3.8,-2.7,-1.7]];
 
@@ -90,6 +91,9 @@ const LOCS=[
   {id:'bereg', name:'Дальний берег',   lv:7,x:268, z:196, r:36,grass:.75,rock:.2, dark:0,seed:71},
 ];
 
+/* щели: за домом и на каждом острове. Монстр сидит в одной и прыгает туда, где герой */
+const SLITS=[{id:'home',x:MOUTH.x,z:MOUTH.z},...LOCS.map(l=>({id:l.id,x:l.x-4,z:l.z-4}))];
+
 /* ---------- состояние ---------- */
 const S={
   mode:'start',ui:null,t:70,day:1,level:0,meter:0,debt:0,nightBlood:0,baseSea:0,seaY:0,
@@ -100,10 +104,10 @@ const S={
   hp:6,azart:40,inCave:false,zoomFoot:1,zoomBoat:1,caves:{},run:null,rollT:0,iframe:0,y:0,
   onBoat:false,x:0,z:0,air:0,vy:0,fx:0,fz:1,dir:'down',flip:false,walkT:0,moving:false,running:false,
   boat:{x:0,z:0,h:0,v:0},tool:'spoon',scoopT:0,pourT:0,
-  up:{spoon:{vol:0,grip:0,dual:false},ladle:{vol:0,grip:0,dual:false},pot:{vol:0,grip:0,dual:false},bucket:{vol:0,grip:0,dual:false},canister:{vol:0,grip:0,dual:false},boat:{speed:0},axe:{sharp:0,grip:0}},
+  up:{spoon:{vol:0,grip:0,dual:false},ladle:{vol:0,grip:0,dual:false},pot:{vol:0,grip:0,dual:false},bucket:{vol:0,grip:0,dual:false},canister:{vol:0,grip:0,dual:false},boat:{speed:0},axe:{sharp:0,grip:0},lantern:{radius:0,life:0}},
   have:{spoon:false,ladle:false,pot:false,bucket:false,canister:false,lantern:false},bp:{},axe:false,woodFrac:0,chopT:0,
   tachka:false,hose:{made:false,placed:false,burn:0,tick:0,x:0,z:0},
-  key:0,doorOpen:false,maps:[],mapCharge:0,mapN:0,haul:0,opened:[],lanternOn:false,skates:{made:false,on:false},car:{made:false,on:false,x:0,z:0},quakes:0,quakeT:150,shakeT:0,bridges:[],talked:{},
+  key:0,doorOpen:false,maps:[],mapCharge:0,mapN:0,haul:0,opened:[],lanternOn:false,skates:{made:false,on:false},car:{made:false,on:false,x:0,z:0},monAt:'home',quakes:0,quakeT:150,shakeT:0,bridges:[],talked:{},
 };
 const levelL=()=>LEVELS[Math.min(S.level,LEVELS.length-1)].liters;
 const isNight=()=>S.t>=CFG.dayLen;

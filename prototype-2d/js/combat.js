@@ -327,6 +327,8 @@ function updateEnemy(e,dt){
   const dx=S.x-e.x,dz=S.z-e.z,d=Math.hypot(dx,dz)||1,ux=dx/d,uz=dz/d;
   if(e.kx||e.kz){moveEnemy(e,e.kx,e.kz,dt);const k=Math.pow(.005,dt);e.kx*=k;e.kz*=k;if(Math.abs(e.kx)+Math.abs(e.kz)<.2)e.kx=e.kz=0}
   if(e.st==='spawn'){if(e.tm<=0){e.st='idle';e.tm=.3}}
+  /* свет фонаря отпугивает тварей, кроме стража */
+  else if(e.t!=='brute'&&S.lanternOn&&S.lantern>0&&d<lanternR()){moveEnemy(e,-ux*7,-uz*7,dt);if(e.st==='wind'||e.st==='lunge'){e.st='rest';e.tm=.6}}
   else if(e.t==='grub'){
     if(e.st==='idle'){moveEnemy(e,ux*ENEMY.grub.speed,uz*ENEMY.grub.speed,dt);if(d<6&&e.cd<=0){e.st='wind';e.tm=.55;e.dx=ux;e.dz=uz}}
     else if(e.st==='wind'){if(e.tm<=0){e.st='lunge';e.tm=.42;blip(240,.1,'square',.05)}}
@@ -420,7 +422,7 @@ function updateCaveScene(dt){
   addL(S.x,S.z,15,.8*flick,[1,.86,.7]);
   for(const t of C.torches){addL(t.x,t.z+2,11,.85*flick,[1,.62,.3]);t.m.material.uniforms.map.value=A.torch[Math.floor(time*9+t.ph)%4].tex}
   if(S.chargeT>.3)addL(S.x,S.z,7,.6,[1,.9,.5]);
-  if(S.lanternOn)addL(S.x,S.z,22,.55,[1,.82,.55]);
+  if(S.lanternOn)addL(S.x,S.z,22+3*S.up.lantern.radius,.55,[1,.82,.55]);
   if(C.chest&&!C.chest.open)addL(C.chest.x,C.chest.z,8,.7+Math.sin(time*3)*.15,[1,.85,.45]);
   if(slashM.visible){C.slashT+=dt;const f=Math.floor(C.slashT*30);if(f>7)slashM.visible=false;else{slashMat.uniforms.map.value=A.slash[Math.min(6,f)].tex;slashMat.uniforms.uOp.value=f>5?1-(C.slashT*30-6)/2:1}}
   stepPaw(dt);updatePaws(dt);

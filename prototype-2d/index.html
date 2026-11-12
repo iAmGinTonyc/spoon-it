@@ -27,6 +27,7 @@
 <script defer src="js/map.js"></script>
 <script defer src="js/windows.js"></script>
 <script defer src="js/ui.js"></script>
+<script defer src="js/save.js"></script>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -85,6 +86,7 @@
 <div id="caveGrid" hidden><div class="box panel"><div class="head"><h2>Куда идти дальше</h2><small>A и D выбрать, E идти. Можно кликнуть. Esc остаться</small></div><canvas id="gridC" width="760" height="560"></canvas><p id="gridInfo"></p></div></div>
 <div id="dialog" hidden><canvas id="dlgFace" width="240" height="240"></canvas><img id="dlgItem" alt="Слиток" hidden><div class="dlgText"><b id="dlgName"></b><p id="dlgLine"></p><small>E, Пробел или клик: дальше</small></div></div>
 <div id="mini" hidden><div class="box panel"><h2 id="miniTitle"></h2><canvas id="miniC" width="420" height="420"></canvas><p id="miniHelp"></p></div></div>
+<div id="pause" hidden><div class="box panel"><h2>Меню</h2><button id="pmResume">Продолжить</button><button id="pmRestart">Начать заново</button><button id="pmSettings" disabled>Настройки<small>появятся позже</small></button><small id="pmSaved"></small></div></div>
 <div id="card" hidden><div class="box panel"><small id="cardKicker">Новый чертёж</small><h2 id="cardTitle"></h2><div id="cardText"></div></div></div>
 
 <div id="start"><div class="box panel">
@@ -103,9 +105,10 @@
     <tr><td>L / C</td><td>Включить или выключить фонарь / зарядить его за высеребро</td></tr>
     <tr><td>V</td><td>Надеть или снять ролики</td></tr>
     <tr><td>F / G / H / B</td><td>Поесть / тайник высеребра / святая вода / костёр</td></tr>
+    <tr><td>Esc</td><td>Меню: продолжить или начать заново. Игра сохраняется сама</td></tr>
     <tr><td>1–4</td><td>Выбрать слот панели снизу. Что в слотах, настраивается в инвентаре</td></tr>
   </table>
-  <button id="startBtn">Начать</button>
+  <div class="startBtns"><button id="startBtn">Начать</button><button id="newBtn" hidden>Новая игра</button></div>
 </div></div>
 </body>
 </html>

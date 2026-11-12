@@ -13,6 +13,7 @@ function handleKey(code){
     if(['KeyE','Enter','Space'].includes(code))pickNode(C.node.next[C.pick]);
     if(code==='Escape')closeGrid();return}
   if(MG.on){if(['KeyE','Space'].includes(code))miniPress();return}
+  if(code==='Escape'&&(winOpen()||(S.ui&&S.ui!=='dialog')))return closeUI();
   if(S.mode==='cutscene'){if(['KeyE','Space','Enter'].includes(code))skipCut();return}
   if(S.mode==='wake'){if(['KeyE','Space','Enter'].includes(code)&&S.wakeT<4.4)S.wakeT=4.4;return}
   if(S.mode!=='play')return;
@@ -22,7 +23,7 @@ function handleKey(code){
   if(S.ui==='inv'&&/^Digit[1-4]$/.test(code)){S.invSlot=+code.slice(5)-1;renderInv();return}
   if(code==='KeyR'&&S.ui==='inv'&&drag){const t=drag.w;drag.w=drag.h;drag.h=t;dragMove(drag.px??drag.sx,drag.py??drag.sy);return}
   if(code==='KeyR'&&!S.ui&&S.hose.placed&&dist2(S.hose,me())<(S.onBoat?10:6))return takeHose();
-  if(code==='Escape'&&S.ui)return closeUI();
+  if(code==='Escape')return openPause();
   if(S.ui)return;
   if(code==='Equal'||code==='NumpadAdd')return zoomCam(1/1.2);
   if(code==='Minus'||code==='NumpadSubtract')return zoomCam(1.2);
@@ -146,7 +147,7 @@ function hintText(){
     if(hot)return 'У острова кипяток. Плыви дальше, за кольцо пара';
     return 'Зачерпни воду: ЛКМ';
   }
-  return nearMonster()?'Влей воду в щель: ЛКМ':'Неси воду к щели. Вместимость растёт на верстаке у дома';
+  return nearMonster()?'Напои монстра: ЛКМ':nearMonsterTalk()?'Подойди к монстру вплотную, чтобы напоить':'Неси воду монстру за домом. Вместимость растёт на верстаке слева от дома';
 }
 /* шкала воды стоит над монстром, а верхняя панель появляется, только когда его не видно */
 function updateMeter(){
@@ -229,7 +230,7 @@ function update(dt){
   updateDialog(dt);
   if(MG.on){updateMini(dt);updateNeeds(dt);updateClock(dt)}
   else if(S.mode==='play'&&S.inCave){updateClock(dt);updateNeeds(dt);if(!S.ui)updateCombat(dt)}
-  else if(S.mode==='play'){updateClock(dt);updateNeeds(dt);updatePlayer(dt);updateNight(dt);updateScoop(dt)}
+  else if(S.mode==='play'){updateClock(dt);updateNeeds(dt);updatePlayer(dt);updateNight(dt);updateScoop(dt);updateMonsterHop(dt)}
   else if(S.mode==='wake')updateWake(dt);
   else if(S.mode==='cutscene')updateCutscene(dt);
   else if(S.mode==='faint')updateFaint(dt);
@@ -241,7 +242,7 @@ heroImg.decode().catch(()=>{}).then(()=>{const url=heroPortrait(360).toDataURL('
 let last=performance.now();
 function frame(now){
   const dt=clamp((now-last)/1000,0,.05);last=now;
-  if(!window.__paused){update(dt);adaptQuality(dt)}updateHUD();renderFrame();requestAnimationFrame(frame);
+  if(!window.__paused&&S.ui!=='pause'){update(dt);adaptQuality(dt)}updateHUD();renderFrame();requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 

@@ -226,3 +226,15 @@ body.cine #skipHint{opacity:.8}
 #locLabel b{font:800 40px var(--display);letter-spacing:.04em}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* меню паузы */
+#pause{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(4,2,7,.7);z-index:40}
+#pause[hidden]{display:none}
+#pause .box{width:min(340px,92vw);display:flex;flex-direction:column;gap:8px;text-align:center}
+#pause h2{font-size:26px;margin-bottom:4px}
+#pause button{min-height:40px;font-size:17px}
+#pause button small{display:block;font:500 12px var(--body);color:var(--ash)}
+#pmRestart.sure{border-image-source:url(ui/btn-red.png)}
+#pmSaved{min-height:16px}
+.startBtns{display:flex;gap:10px}
+#newBtn[hidden]{display:none}

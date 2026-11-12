@@ -244,6 +244,8 @@ const monArt=art(MON_M,MON_M,null,96),monMat=makeMat(monArt.tex,false,{depth:fal
 /* нижняя часть овцы внутри щели: кадр спущен под землю и там обрезан */
 const MON_SINK=.03,monBodyH=st=>MF[st][0].by*MON_K,monGeos=[0,1,2,3].map(st=>new THREE.PlaneGeometry(1,1).translate(0,.5-MON_SINK*monBodyH(st)/MON_M,0));
 let crackK=0;
+/* пустые щели, где монстра сейчас нет: видны, только когда остров вышел из воды */
+const slitFx=SLITS.map(s=>({s,dec:flat(A.crack,s.x,s.z,A.crack.w,A.crack.h,.08),lip:spr(A.crackLip,s.x,s.z+1,1,false,makeMat(A.crackLip.tex,false,{depth:false}))}));
 let monKey='';
 const monBase=()=>1.2+S.level*.06;
 const monScale=()=>monBase()*(1+Math.sin((S.monPop||0)*9)*(S.monPop||0)*.28);
@@ -262,11 +264,12 @@ const roof=spr(A.house,HOUSE.x,HOUSE.z+3.9,1,false,roofMat);
 const houseDoor=spr(sheetArt('door',1.7),HOUSE.x+.45,HOUSE.z+3.95,1,false,undefined,HY);
 put(A.bench,BENCH.x,BENCH.z,{solid:1.7});
 put(A.pot,POT.x,POT.z,{solid:1.2});
-for(const[a,x,z,o]of[[A.fence,-13.6,-1.8,{}],[A.fence,-1.6,-2.3,{flip:true}],[A.fence,1.6,-3,{}],[A.sign,3,1.6,{}],[A.logs,-14.5,-4,{solid:1}],[A.barrel,-1.4,-4.2,{solid:.7}],[A.barrel,-.2,-3.5,{solid:.7,scale:.8}],
-  [A.lamp,-4.6,2,{}],[A.lamp,6,2.6,{}],[A.lamp,12,1,{}],[A.clothes,-16,-9,{}],[A.well,7,-6,{solid:1.3,cast:true}],[A.hive,-17,-5.8,{}],[A.scare,-6,6,{}],[A.cart,4,8,{solid:1.3}],[A.net,10,18,{}],[A.tent,-9,15,{solid:1.6,cast:true}]])
+for(const[a,x,z,o]of[[A.fence,-13.6,-1.8,{}],[A.fence,-1.6,-2.3,{flip:true}],[A.fence,1.6,-3,{}],[A.sign,3,1.6,{}],[A.logs,-3.4,-2.8,{solid:1}],[A.barrel,-1.4,-4.2,{solid:.7}],[A.barrel,-.2,-3.5,{solid:.7,scale:.8}],
+  [A.lamp,-4.6,2,{}],[A.lamp,6,2.6,{}],[A.lamp,12,1,{}],[A.clothes,-16,-9,{}],[A.well,7,-6,{solid:1.3,cast:true}],[A.hive,-20,-9.5,{}],[A.scare,-6,6,{}],[A.cart,4,8,{solid:1.3}],[A.net,10,18,{}],[A.tent,-9,15,{solid:1.6,cast:true}]])
   if(groundH(x,z)>.05)put(a,x,z,o);
 const pathStones=[];
-for(let i=0;i<9;i++){const t=i/8,x=lerp(-4,12,t),z=lerp(-.4,4.4,t)+Math.sin(i*1.3)*.5;pathStones.push({x,z,m:flat(A.path,x,z,2.2,1.5,.09)})}
+/* тропа от двери вокруг дома к монстру */
+for(let i=0;i<9;i++){const t=i/8,x=lerp(-3.5,-.2,t)+Math.sin(t*3.14)*1.6,z=lerp(-3.2,-15,t);pathStones.push({x,z,m:flat(A.path,x,z,2.2,1.5,.09)})}
 for(let i=0;i<7;i++){const t=i/6,x=lerp(-7,-2,t),z=lerp(-3,2+Math.sin(i),t);pathStones.push({x,z,m:flat(A.path,x,z,2.1,1.4,.09)})}
 
 /* костры */
@@ -301,7 +304,7 @@ for(const[x,z]of[[-18,6],[-4,12],[-20,-5],[5,-15],[13,-11],[-3,20],[8,16],[-12,8
 
 function scatter(l,n,fn){for(let i=0;i<n;i++){
   const a=hash(i+l.seed,3)*6.283,r=l.r*(.1+.8*Math.sqrt(hash(i+l.seed,7))),x=l.x+Math.cos(a)*r,z=l.z+Math.sin(a)*r;
-  if(locD(l,x,z)<.9)fn(x,z,i)}}
+  if(locD(l,x,z)<.9&&!SLITS.some(s=>Math.hypot(s.x-x,s.z-z)<6))fn(x,z,i)}}
 const L=id=>LOCS.find(l=>l.id===id);
 {
   const o=L('otmel');scatter(o,9,(x,z,i)=>i%2?addTree(x,z,true):put(A.rock[i%3],x,z,{solid:1.1,cast:true}));
@@ -317,7 +320,7 @@ const L=id=>LOCS.find(l=>l.id===id);
 const SEABED=[[A.rock[0],A.tuft],[A.rock[1],A.rock[2]],[A.rock[2],A.black[1]],[A.rock[1],A.black[0]],[A.glow,A.black[0]]];
 for(let i=0;i<5200;i++){
   const a=hash(i,41)*6.283,r=7+Math.sqrt(hash(i,43))*345,x=Math.cos(a)*r,z=Math.sin(a)*r,h=groundH(x,z);
-  if(h<-12.6||Math.hypot(x-MOUTH.x,z-MOUTH.z)<7.5||Math.hypot(x-HOUSE.x,z-HOUSE.z-1)<8.5||nearCave(x,z,5))continue;
+  if(h<-12.6||SLITS.some(s=>Math.hypot(x-s.x,z-s.z)<7.5)||Math.hypot(x-HOUSE.x,z-HOUSE.z-1)<8.5||nearCave(x,z,5))continue;
   if(!flatLand(x,z,1.6)||hiddenLedge(x,z))continue;
   const b=biomeAt(x,z),k=hash(i,47),flip=i%2===0;
   if(h>.25&&b[0]>.55){put(k<.5?A.tuft:k<.72?A.flower[i%4]:k<.86?A.fern:A.mush,x,z,{decor:true,flip,scale:.9+k*.5})}
@@ -501,9 +504,12 @@ const puff=(x,y,z,n=5)=>{for(let i=0;i<n;i++)emit(A.puff,x+(Math.random()-.5),y,
 const splash=(x,z,n=6)=>{dropRip(x,Math.max(Yat(x,z),seaVis()),z,1.1,false);for(let i=0;i<n*3;i++){const a=Math.random()*6.28,s=.7+Math.random()*2.3;emit(A.drop,x,.15,z,Math.cos(a)*s,2.4+Math.random()*3.8,Math.sin(a)*s*.66,1.3,12,.45+Math.random()*.6,false,i*.006)}};
 /* вода из ложки летит к щели каплями, а не появляется там сразу */
 function pourArc(){
-  const x0=S.x+S.fx*.5,z0=S.z+.1,y0=Yat(S.x,S.z)+1.2,my=Yat(MOUTH.x,MOUTH.z);
-  for(let i=0;i<18;i++){const tx=MOUTH.x+(Math.random()-.5)*CRACK_A*crackK,tz=MOUTH.z+CRACK_B*crackK*(.2+Math.random()*.6),t=.34+Math.random()*.14,
-    q=emit(A.drop,x0,y0,z0,(tx-x0)/t,(my-y0+6*t*t)/t,(tz-z0)/t,1.2,12,.5+Math.random()*.55,true,i*.016);if(q)q.floor=my}
+  const my=Yat(MOUTH.x,MOUTH.z),nz=MOUTH.z+CRACK_B*crackK,mouthY=my+monBodyH(monStage())*monScale()*.3,dir=S.flip?-1:1;
+  const x0=S.x+dir*.85,z0=S.z,y0=Yat(S.x,S.z)+.95;
+  for(let i=0;i<16;i++){const tx=MOUTH.x+(Math.random()-.5)*.5,tz=nz+.05,ty=mouthY+(Math.random()-.5)*.25,t=.22+Math.random()*.1;
+    const q=emit(A.drop,x0,y0,z0,(tx-x0)/t,(ty-y0+6*t*t)/t,(tz-z0)/t,t,12,.45+Math.random()*.45,true,i*.02);if(q)q.floor=-99}
+  /* брызги от морды, как только вода долетела */
+  for(let i=0;i<5;i++){const a=Math.random()*6.28,q=emit(A.drop,MOUTH.x,mouthY,nz+.1,Math.cos(a)*1.2,1+Math.random()*1.5,.6+Math.random()*.8,1,12,.4+Math.random()*.3,true,.3+i*.03);if(q)q.floor=my}
 }
 function dropFrom(){emit(A.drop,S.x+S.fx*.5+(S.flip?-.4:.4),1.1+S.air,S.z+.1,(Math.random()-.5)*.8,.4,(Math.random()-.5)*.5,1,12,.55+Math.random()*.45)}
 function updateParts(dt){
@@ -591,7 +597,7 @@ function updateLights(n){
   addL(MOUTH.x,MOUTH.z,10,(.25+.85*n)*(S.thirsty?.25:1)*flick,[1,.32,.12]);
   addL(BASE.x,BASE.z+1,17,n*(S.thirsty?.2:.95)*flick,[1,.68,.38]);
   addL(HOUSE.x,HOUSE.z,8,n*.75,[1,.78,.5]);
-  if(S.lanternOn){const p=me();addL(p.x,p.z,14,1.05*flick,[1,.8,.52])}
+  if(S.lanternOn){const p=me();addL(p.x,p.z,14+3*S.up.lantern.radius,1.05*flick,[1,.8,.52])}
   else if(n>.05){const p=me();addL(p.x,p.z,7,n*.42,[.62,.68,.92])}
   if(S.onBoat)addL(S.boat.x,S.boat.z,16,n*.9,[1,.82,.55]);
   for(const f of fires)addL(f.x,f.z,13,(.2+.95*n)*flick,[1,.6,.28]);
@@ -704,10 +710,12 @@ function updateScene(dt){
   S.monPop=Math.max(0,(S.monPop||0)-dt*1.4);
   const sq=1+Math.sin(time*1.6)*.02+(smile?.025:0),my=Yat(MOUTH.x,MOUTH.z);
   const ms=monScale();
-  monM.scale.set(MON_M*ms*(2-sq),MON_M*ms*sq,1);
+  monM.scale.set(MON_M*ms*(2-sq),MON_M*ms*sq*(1-(S.monSink||0)),1);
   {const st=monStage(),tk=crackTarget(),nz=()=>MOUTH.z+CRACK_B*crackK;crackK=crackK?crackK+(tk-crackK)*Math.min(1,dt*1.4):tk;
     monM.geometry=monGeos[st];monMat.uniforms.uClip.value=MON_SINK*monBodyH(st)/MON_M;monM.position.set(MOUTH.x,my+.1,nz());
-    crackDecal.scale.set(A.crack.w*crackK,1,A.crack.h*crackK);crackLip.position.set(MOUTH.x,my,nz()-.1);crackLip.scale.set(A.crackLip.w*crackK,A.crackLip.h*crackK,1)}
+    crackDecal.position.set(MOUTH.x,my+.08,MOUTH.z);crackDecal.scale.set(A.crack.w*crackK,1,A.crack.h*crackK);
+    for(const f of slitFx){const s=f.s,on=s.x!==MOUTH.x||s.z!==MOUTH.z?groundH(s.x,s.z)>S.seaY+.15:false,sy=Yat(s.x,s.z);f.dec.visible=f.lip.visible=on;if(!on)continue;
+      f.dec.scale.set(A.crack.w*crackK,1,A.crack.h*crackK);f.lip.position.set(s.x,sy,s.z+CRACK_B*crackK-.1);f.lip.scale.set(A.crackLip.w*crackK,A.crackLip.h*crackK,1)}crackLip.position.set(MOUTH.x,my,nz()-.1);crackLip.scale.set(A.crackLip.w*crackK,A.crackLip.h*crackK,1)}
 
   /* кораблик качается на воде */
   const b=S.boat;

@@ -2,7 +2,9 @@
 const nearFire=()=>{const p=me();return fires.some(f=>dist2(f,p)<11)};
 const atBase=()=>{const p=me();return dist2(BASE,p)<12};
 const nearCook=()=>{const p=me();return fires.some(f=>dist2(f,p)<4.5)||dist2(POT,p)<3.4};
-const nearMonster=()=>!S.onBoat&&dist2(MOUTH,S)<CRACK_A*crackK+3.2;
+/* напоить можно только вплотную, поговорить чуть дальше */
+const nearMonster=()=>!S.onBoat&&Math.hypot((S.x-MOUTH.x)/(CRACK_A*crackK+.7),(S.z-MOUTH.z)/(CRACK_B*crackK+.9))<1.45;
+const nearMonsterTalk=()=>!S.onBoat&&dist2(MOUTH,S)<CRACK_A*crackK+3.2;
 const inHouse=()=>{if(S.onBoat)return false;const l=houseL(S.x,S.z);return Math.abs(l.x)<4.6&&Math.abs(l.z)<3.7};
 const nearestMap=(r)=>{let best=null,bd=r;for(const m of activeMaps()){const d=dist2(m,S.boat);if(d<bd){bd=d;best=m}}return best};
 
@@ -137,6 +139,12 @@ function waterReach(){
   return null;
 }
 const POUR_T=.75;
+/* волк встаёт сбоку от монстра так, чтобы струя из ложки падала на него */
+function pourStance(){
+  const half=MF[monStage()][0].w*MON_K*monBase()/2,side=S.x<MOUTH.x?-1:1,x=MOUTH.x+side*(half*.55+.95),z=MOUTH.z+CRACK_B*crackK+.5;
+  if(groundH(x,z)>S.seaY-.1){S.x=x;S.z=z}
+  S.dir='side';S.flip=side>0;S.fx=-side;S.fz=0;
+}
 function faceMonster(){const dx=MOUTH.x-S.x,dz=MOUTH.z-S.z;S.dir=Math.abs(dz)>Math.abs(dx)?(dz<0?'up':'down'):'side';if(dx)S.flip=dx<0}
 function primaryAction(){
   const a=getPrimary();
@@ -165,6 +173,26 @@ function hoseAction(){
 }
 /* ---------- ночь ---------- */
 const darkLimit=()=>CFG.darkLimit+S.sk.dark*3;
+/* радиус, в котором фонарь отпугивает тварей */
+const lanternR=()=>4.5+1.2*S.up.lantern.radius;
+/* ---------- монстр прыгает за героем по щелям островов ---------- */
+function islandAt(x,z){for(const l of LOCS)if(S.opened.includes(l.id)&&Math.hypot(x-l.x,z-l.z)<l.r+6)return l.id;return Math.hypot(x,z)<110?'home':null}
+function updateMonsterHop(dt){
+  const j=S.monJump;
+  if(j){j.t+=dt;
+    if(j.t<.6)S.monSink=j.t/.6;
+    else{
+      if(!j.moved){j.moved=true;puff(MOUTH.x,1,MOUTH.z,8);const s=SLITS.find(q=>q.id===j.to);MOUTH.x=s.x;MOUTH.z=s.z;S.monAt=j.to;blip(140,.4,'sawtooth',.06)}
+      S.monSink=Math.max(0,1-(j.t-.6)/.5);
+      if(j.t>=1.1){S.monJump=null;S.monSink=0;S.monPop=1;puff(MOUTH.x,1,MOUTH.z,8);blip(420,.3,'triangle',.07);
+        if(!S.firsts.hop&&j.to!=='home'){S.firsts.hop=true;say(HOP_TALK)}}}
+    return}
+  if(S.mode!=='play'||S.ui)return;
+  const id=S.onBoat?null:islandAt(S.x,S.z);
+  if(!id||id===S.monAt){S.hopT=0;return}
+  const s=SLITS.find(q=>q.id===id);if(!s||groundH(s.x,s.z)<S.seaY+.2)return;
+  S.hopT=(S.hopT||0)+dt;if(S.hopT>6){S.hopT=0;S.monJump={to:id,t:0,moved:false};rumble(1)}
+}
 function endAttack(msg){S.attacking=false;S.bleeding=false;if(msg)toast(msg)}
 function steal(){
   const order=[['water','воду'],['wood','дрова'],['berries','ягоды'],['fish','рыбу'],['food','еду'],['finds','находки'],['shilver','высеребро']];
@@ -179,6 +207,8 @@ function updateNight(dt){
   S.safe=safe;S.lit=lanternOn||safe;
   if(!night){if(S.attacking)endAttack('Рассвет: демоны улетели');S.darkT=0;return}
   S.darkT=S.lit?0:S.darkT+dt;
+  /* фонарь отпугивает демонов даже от голодного */
+  if(lanternOn){if(S.attacking)endAttack('Фонарь отпугнул демонов');return}
   const blessed=S.blessedDay===S.day;
   if(!S.attacking&&!blessed&&!safe&&(S.darkT>=darkLimit()||S.sat<CFG.hungry)){
     S.attacking=true;S.bleeding=false;S.stealT=.6;toast('С неба падают демоны');
@@ -263,7 +293,7 @@ function pour(L,viaHose=false){
   S.meter=Math.min(levelL(),S.meter+L);
   blip(viaHose?180:320,.22,'triangle',.08);
   if(!viaHose)pourArc();
-  splash(MOUTH.x,MOUTH.z+CRACK_B*crackK,viaHose?3:1);
+  if(viaHose)splash(MOUTH.x,MOUTH.z+CRACK_B*crackK,3);
   showGain(pay);
   if(toDebt>0)toast('Кровавая вода: монстр платит, но шкала стоит');
   if(!S.firsts.drank){S.firsts.drank=true;if(!S.ui)say([{who:'monster',t:'Вода… Спасибо! Теперь я выживу.'},{who:'monster',t:'Вот, держи. Это тебе.',item:'ingot'},{who:'hero',t:'Что это? Откуда этот запах?',item:'ingot'},{who:'monster',t:'Это высеребро. Лучше не нюхай.',item:'ingot'},{who:'monster',t:'Этого мало. Принеси ещё, пожалуйста!'}])}
@@ -321,7 +351,7 @@ function getPrimary(){
   if(FOODS[h]&&S[h]>0)return{label:`Съесть: ${FOODS[h].name.toLowerCase()}`,fn(){eat(h)}};
   if(!TOOLS[h]||!S.have[h])return null;
   if(S.water>0){
-    if(nearMonster())return{label:`Влить воду: ${fmtL(S.water)} л`,fn(){faceMonster();pour(S.water);S.water=0;S.pourT=POUR_T}};
+    if(nearMonster())return{label:`Влить воду: ${fmtL(S.water)} л`,fn(){pourStance();pour(S.water);S.water=0;S.pourT=POUR_T}};
     const hs=S.hose,reach=S.onBoat?10:6;
     if(hs.placed&&dist2(hs,me())<reach)return{label:`Влить в шланг: ${fmtL(S.water)} л`,fn(){pour(S.water,true);S.water=0;S.pourT=POUR_T}};
   }
@@ -355,7 +385,7 @@ function getAction(){
   if(!S.chestOpen&&dist2(CHEST,S)<2.7)return{label:'Открыть сундук',fn:openChest};
   if(!S.doorOpen&&dist2(houseW(0,3.4),S)<2.4)return S.key?{label:'Открыть дверь ключом',fn:unlockDoor}:{label:'Дверь заперта: ключ должен быть в сундуке',fn(){blip(160,.1,'square',.05);toast('Заперто. Посмотри в сундуке у кровати')}};
   if(dist2(BENCH,S)<3.8)return{label:'Верстак: прокачать тару',fn(){openUI('bench')}};
-  if(nearMonster())return{label:S.talked[Math.min(S.level,TALK.length-1)]?'Поговорить':'Поговорить: ему есть что сказать',fn:talkMonster};
+  if(nearMonsterTalk())return{label:S.talked[Math.min(S.level,TALK.length-1)]?'Поговорить':'Поговорить: ему есть что сказать',fn:talkMonster};
   if(S.car.made&&Math.hypot(S.car.x-S.x,S.car.z-S.z)<4)return{label:'Сесть в машину',fn:enterCar};
   {const q=bridgeSpot();if(q)return{label:S.wood>=CFG.bridgeWood?`Построить мост: ${CFG.bridgeWood} дров`:`Для моста нужно дров: ${CFG.bridgeWood}`,fn(){if(S.wood>=CFG.bridgeWood)buildBridge(q)}}}
   {const raw=S.fish+fishIds.reduce((n,id)=>n+S[id],0);
@@ -508,7 +538,7 @@ function updatePlayer(dt){
     }
     if(running)S.stam=Math.max(0,S.stam-16*useMul*Math.pow(.88,S.sk.endur)*dt);
     else S.stam=Math.min(100,S.stam+(moving?5:7)*dt);
-    if(meterFull()&&nearMonster())startLevelUp();
+    if(meterFull()&&nearMonsterTalk())startLevelUp();
   }
   if(nearFire()||atBase())S.stam=Math.min(100,S.stam+9*dt);
   /* вода проливается, пока её несут: бегом сильнее, с лодки слабее */
@@ -528,7 +558,7 @@ function updateScoop(dt){
 function updateNeeds(dt){
   S.sat=Math.max(0,S.sat-CFG.satDecay*Math.pow(.88,S.sk.gut)*dt);S.buff=Math.max(0,S.buff-dt);S.bubbleT=Math.max(0,S.bubbleT-dt);
   if(S.firsts.pour||S.level>0){S.phraseT-=dt;if(S.phraseT<=0){S.phraseT=7;S.phraseI++}}
-  if(S.lanternOn){S.lantern=Math.max(0,S.lantern-dt*CFG.lanternDrain);if(S.lantern<=0){S.lanternOn=false;toast('Фонарь погас: заряди его, C')}}
+  if(S.lanternOn){S.lantern=Math.max(0,S.lantern-dt*CFG.lanternDrain*Math.pow(.8,S.up.lantern.life));if(S.lantern<=0){S.lanternOn=false;toast('Фонарь погас: заряди его, C')}}
   if(S.inCave){invSync();updateHose(dt);if(S.cardT>0){S.cardT-=dt;if(S.cardT<=0)$('card').hidden=true}return}
   updateQuake(dt);
   const p=me();revealMap();invSync();updateHose(dt);
@@ -575,11 +605,11 @@ const QUAKES=[
 function updateQuake(dt){
   if(S.shakeT>0)S.shakeT=Math.max(0,S.shakeT-dt);
   if(S.quakeFire!=null){S.quakeFire-=dt;if(S.quakeFire<=0){S.quakeFire=null;splitIsland()}return}
-  if(S.level<1||S.quakes>=Math.min(S.level,QUAKES.length))return;
+  if(!CFG.quakesOn||S.level<1||S.quakes>=Math.min(S.level,QUAKES.length))return;
   S.quakeT-=dt;if(S.quakeT<=0)startQuake();
 }
 function startQuake(){
-  if(S.quakes>=QUAKES.length||S.quakeFire!=null)return;
+  if(!CFG.quakesOn||S.quakes>=QUAKES.length||S.quakeFire!=null)return;
   S.shakeT=3;S.quakeFire=1.1;rumble(3);blip(50,1.6,'sawtooth',.1);toast('Земля дрожит!');
 }
 function splitIsland(){
