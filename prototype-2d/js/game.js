@@ -241,6 +241,10 @@ function updateClock(dt){
   }
   if(S.t>=CFG.dayLen+CFG.nightLen){newDay();gainXP(10,'ты пережил ночь')}
 }
+/* чертёж уровня i лежит в пещере острова, который открылся на этом уровне */
+const bpOwned=L=>!L.bp||(L.tool?!!S.bp[L.tool]:L.bp==='Шланг'?!!S.bp.hose:L.bp==='Тачка'?!!S.tachka:true);
+function pendingBp(){for(let i=0;i<S.level;i++){const L=LEVELS[i],loc=LOCS.find(l=>l.lv===i+1);if(loc&&S.opened.includes(loc.id)&&!bpOwned(L))return{L,loc}}return null}
+const levelReward=lv=>30+30*lv;
 function applyBlueprint(i){
   const L=LEVELS[i];
   if(L.tool)S.bp[L.tool]=true;
@@ -458,7 +462,7 @@ function startLevelUp(){
 function setSub(t){const e=$('subtitle');if(t){e.textContent=t;e.style.opacity=1}else e.style.opacity=0}
 function cutGrow(){
   if(cut.grew)return;cut.grew=true;blip(55,1.4,'sawtooth',.09);S.monPop=1;
-  const i=S.level;S.level++;S.meter=0;S.phraseI=0;S.phraseT=7;applyBlueprint(i);cut.bp=LEVELS[i];
+  const i=S.level;S.level++;S.meter=0;S.phraseI=0;S.phraseT=7;cut.bp=LEVELS[i];cut.reward=levelReward(S.level);S.shilver+=cut.reward;
   showHearts();puff(MOUTH.x,1.2,MOUTH.z,8);
 }
 function updateCutscene(dt){
@@ -473,7 +477,8 @@ function updateCutscene(dt){
   if(c.loc&&c.t>6.1&&!c.labeled){c.labeled=true;setSub(null);$('locName').textContent=c.loc.name;$('locLabel').style.opacity=1;blip(520,.5,'triangle',.06);blip(780,.7,'triangle',.05)}
   if(c.t>T_BACK-.5)$('locLabel').style.opacity=0;
   if(c.t>T_BACK&&!c.card){c.card=true;setSub(null);
-    if(c.bp&&c.bp.bp){$('cardKicker').textContent='Новый чертёж';$('cardTitle').textContent=c.bp.bp;$('cardText').textContent=c.bp.text;$('card').hidden=false}}
+    $('cardKicker').textContent='Монстр вырос';$('cardTitle').textContent=`Уровень ${S.level+1}`;
+    $('cardText').textContent=`+${c.reward} высеребра, +${15*S.level} опыта`+(c.loc?`. Открылся остров: ${c.loc.name}`:'');$('card').hidden=false}
   if(c.t>T_END)finishCut();
 }
 function shoreAt(a){for(let r=10;r<200;r+=2){const x=Math.cos(a)*r,z=Math.sin(a)*r;if(groundH(x,z)<S.seaY)return{x,z}}return null}
@@ -489,6 +494,8 @@ function finishCut(){
   toast(c.loc?`Вода ушла. Открылось: ${c.loc.name}`:'Вода ушла, на берегу новые находки');
   gainXP(15*S.level,'новый уровень монстра');
   if(S.level===CFG.hotFromLevel)toast('Щель раскалилась: море у острова закипело. Теперь черпай за кольцом пара');
+  /* монстр подсказывает, где теперь лежит чертёж */
+  if(c.loc&&c.bp&&c.bp.bp)say([{who:'monster',t:`Слышишь? Вода ушла, и показался новый остров: ${c.loc.name}.`},{who:'monster',t:`В его пещере лежит чертёж: ${c.bp.bp}. Пройди пещеру до конца, и он твой.`}]);
 }
 function spawnDigs(loc){
   if(loc){const hasAxe=loc.lv===1&&!S.axe;addDig(loc.x+2,loc.z+2,{axe:hasAxe,holy:!hasAxe})}

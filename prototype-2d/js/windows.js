@@ -39,14 +39,14 @@ function renderBench(){
     b.innerHTML=`${title}<small>${sub}</small>${pipsHtml(n,max)}<span class="price">${done?'Готово':price+' высеребра'}</span>`;
     b.onclick=()=>{S.shilver-=price;buy();blip(640,.1);renderBench()};col.append(b);
   };
-  box.insertAdjacentHTML('beforeend',`<div class="head"><small>Дров: ${S.wood}. Монстр даёт чертёж, а тару ты делаешь здесь.</small></div>`);
+  box.insertAdjacentHTML('beforeend',`<div class="head"><small>Дров: ${S.wood}. Чертежи тары лежат в пещерах новых островов, а делаешь её здесь.</small></div>`);
   box.append(tree);
   for(const t of Object.keys(TOOLS)){
     const T=TOOLS[t],u=S.up[t],col=document.createElement('div');tree.append(col);
     const capNow=T.cap*Math.pow(1.45,u.vol)*(u.dual?2:1);
     if(!S.have[t]){
       if(t==='spoon'){col.insertAdjacentHTML('beforeend',`<div class="root locked">${T.name}<small>Лежит в сундуке дома</small></div>`);continue}
-      if(!S.bp[t]){col.insertAdjacentHTML('beforeend',`<div class="root locked">${T.name}<small>Чертёж на уровне ${T.level}</small></div>`);continue}
+      if(!S.bp[t]){col.insertAdjacentHTML('beforeend',`<div class="root locked">${T.name}<small>Чертёж в пещере: ${(LOCS.find(l=>l.lv===T.level)||{}).name||'новый остров'}</small></div>`);continue}
       const[sh,w]=T.craft;
       col.insertAdjacentHTML('beforeend',`<div class="root">${T.name}<small>Чертёж есть, вместимость ${fmtL(T.cap)} л</small></div>`);
       const b=document.createElement('button');b.className='skill';b.disabled=S.shilver<sh||S.wood<w;
@@ -64,7 +64,7 @@ function renderBench(){
   const n=S.up.boat.speed;
   node(col,'Скорость','Лодка идёт быстрее',n,5,cost(60,n),()=>{S.up.boat.speed++});
   const hc=document.createElement('div');tree.append(hc);
-  if(!S.bp.hose)hc.insertAdjacentHTML('beforeend','<div class="root locked">Шланг<small>Чертёж на уровне 4</small></div>');
+  if(!S.bp.hose)hc.insertAdjacentHTML('beforeend',`<div class="root locked">Шланг<small>Чертёж в пещере: ${LOCS.find(l=>l.lv===4).name}</small></div>`);
   else if(S.hose.made)hc.insertAdjacentHTML('beforeend','<div class="root">Шланг<small>Уже сделан, занимает 3 клетки</small></div>');
   else{
     hc.insertAdjacentHTML('beforeend','<div class="root">Шланг<small>Чертёж есть, занимает 3 клетки</small></div>');

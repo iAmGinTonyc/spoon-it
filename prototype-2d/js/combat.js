@@ -143,7 +143,10 @@ function leaveCave(cleared){
   S.x=C.back.x;S.z=C.back.z;S.y=Yat(S.x,S.z);S.dir='down';
   $('combatHud').style.display='none';$('bossBar').style.display='none';$('caveMini').style.display='none';$('dev').style.display='';
   const loot=S.run.sh;
-  if(cleared){S.shilver+=loot;S.caves[c.id]=S.day;gainXP(25+c.lv*15,'пещера зачищена');showCard('Пещера пройдена',c.name,`Добыча: ${loot} высеребра`,4)}
+  if(cleared){S.shilver+=loot;S.caves[c.id]=S.day;gainXP(25+c.lv*15,'пещера зачищена');
+    /* в пещере нового острова лежит чертёж его уровня */
+    const L=c.lv>0?LEVELS[c.lv-1]:null,bp=L&&L.bp&&!bpOwned(L)?L:null;if(bp)applyBlueprint(c.lv-1);
+    showCard(bp?'Найден чертёж':'Пещера пройдена',bp?bp.bp:c.name,bp?`${bp.text} Добыча: ${loot} высеребра`:`Добыча: ${loot} высеребра`,bp?6:4)}
   else{
     /* смерть: вся добыча пещеры пропадает, герой просыпается дома, а корабль оказывается у родного берега */
     const q=houseW(-1.9,-.9);S.x=q.x;S.z=q.z;S.y=Yat(q.x,q.z);

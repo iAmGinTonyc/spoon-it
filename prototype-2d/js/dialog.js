@@ -58,5 +58,6 @@ const TALK=[
 function talkMonster(){
   S.talked=S.talked||{};const i=Math.min(S.level,TALK.length-1);
   if(!S.talked[i]){S.talked[i]=true;say(TALK[i]);return}
+  const pb=pendingBp();if(pb)return say([{who:'monster',t:`Чертёж «${pb.L.bp}» всё ещё лежит в пещере: ${pb.loc.name}.`}]);
   const set=PHRASES[Math.min(S.level,PHRASES.length-1)];say([{who:'monster',t:set.idle[Math.floor(Math.random()*set.idle.length)]}]);
 }
